@@ -1,0 +1,32 @@
+[
+  {
+    "mitigation_id": "M-201",
+    "title": "Implement MAC-sec on Automotive Ethernet backbone",
+    "control_type": "Network Enforcement",
+    "linked_risks": ["R-10"],
+    "estimated_effort": "High",
+    "expected_risk_reduction": 4.5,
+    "status": "candidate",
+    "validation_steps": ["Verify MAC-sec switch support", "Benchmark latency impact"]
+  },
+  {
+    "mitigation_id": "M-202",
+    "title": "Patch Linux Kernel on Telematics OS",
+    "control_type": "Patch Management",
+    "linked_risks": ["R-11"],
+    "estimated_effort": "Low",
+    "expected_risk_reduction": 5.0,
+    "status": "selected",
+    "validation_steps": ["Run unit tests against Telematics driver stack"]
+  },
+  {
+    "mitigation_id": "M-203",
+    "title": "Disable root access on production Head Unit builds",
+    "control_type": "Configuration Hardening",
+    "linked_risks": ["R-12"],
+    "estimated_effort": "Low",
+    "expected_risk_reduction": 3.0,
+    "status": "candidate",
+    "validation_steps": ["Attempt SSH login with factory keys"]
+  }
+]

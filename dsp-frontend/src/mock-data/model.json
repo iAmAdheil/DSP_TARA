@@ -1,0 +1,32 @@
+[
+  {
+    "id": "A-1",
+    "type": "asset",
+    "label": "Infotainment Head Unit",
+    "subsystem": "Infotainment",
+    "metadata": {
+      "os": "Android Automotive 12",
+      "interfaces": ["Bluetooth", "Wi-Fi", "USB"]
+    }
+  },
+  {
+    "id": "A-2",
+    "type": "asset",
+    "label": "Telematics Gateway",
+    "subsystem": "Telematics",
+    "metadata": {
+      "os": "Linux Yocto",
+      "interfaces": ["LTE", "Ethernet"]
+    }
+  },
+  {
+    "id": "A-3",
+    "type": "asset",
+    "label": "ADAS Domain Controller",
+    "subsystem": "ADAS",
+    "metadata": {
+      "os": "QNX Neutrino",
+      "interfaces": ["CAN FD", "Ethernet"]
+    }
+  }
+]

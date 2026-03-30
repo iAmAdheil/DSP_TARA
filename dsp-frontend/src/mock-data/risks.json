@@ -1,0 +1,46 @@
+[
+  {
+    "risk_id": "R-10",
+    "title": "Remote ADAS Takeover via CAN Bridge",
+    "severity": "Critical",
+    "risk_score": 9.2,
+    "safety_impact": "High",
+    "exploitability": "High",
+    "effort": "Medium",
+    "source_type": "attack_path",
+    "status": "queued"
+  },
+  {
+    "risk_id": "R-11",
+    "title": "Unauthenticated RCE in Telematics (CVE-2022-38392)",
+    "severity": "High",
+    "risk_score": 8.4,
+    "safety_impact": "Medium",
+    "exploitability": "High",
+    "effort": "Low",
+    "source_type": "cve",
+    "status": "reviewed"
+  },
+  {
+    "risk_id": "R-12",
+    "title": "Local Privilege Escalation in Head Unit",
+    "severity": "Medium",
+    "risk_score": 6.8,
+    "safety_impact": "Low",
+    "exploitability": "Low",
+    "effort": "High",
+    "source_type": "threat",
+    "status": "queued"
+  },
+  {
+    "risk_id": "R-13",
+    "title": "Bluetooth Pairing Downgrade Attack",
+    "severity": "Low",
+    "risk_score": 3.4,
+    "safety_impact": "None",
+    "exploitability": "Medium",
+    "effort": "Low",
+    "source_type": "threat",
+    "status": "accepted"
+  }
+]

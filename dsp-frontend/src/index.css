@@ -1,0 +1,241 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Base neutrals */
+  --bg-app: #f6f7f8;
+  --bg-surface-0: #ffffff;
+  --bg-surface-1: #f9fafb;
+  --bg-surface-2: #f2f4f6;
+  --bg-overlay: rgba(17, 24, 39, 0.48);
+
+  /* Borders */
+  --border-subtle: #eceff2;
+  --border-default: #dfe3e8;
+  --border-strong: #cfd6de;
+  --border-focus: #24a06b;
+
+  /* Text */
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-disabled: #9ca3af;
+  --text-inverse: #ffffff;
+
+  /* Brand/Accent */
+  --accent-50: #eefbf4;
+  --accent-100: #d9f6e6;
+  --accent-200: #b4edcd;
+  --accent-300: #87ddb0;
+  --accent-400: #4fc78a;
+  --accent-500: #24a06b;
+  --accent-600: #1b7f55;
+  --accent-700: #166445;
+
+  /* Semantic */
+  --success-bg: #eefbf4;
+  --success-fg: #166445;
+  --warning-bg: #fff7e8;
+  --warning-fg: #92400e;
+  --danger-bg: #fff1f2;
+  --danger-fg: #b42318;
+  --info-bg: #eef5ff;
+  --info-fg: #1d4ed8;
+
+  /* Risk severity */
+  --risk-critical: #b42318;
+  --risk-high: #d14343;
+  --risk-medium: #c27a10;
+  --risk-low: #2f855a;
+  --risk-info: #2563eb;
+
+  /* Typography */
+  --font-sans: "Inter", "SF Pro Text", "Segoe UI", sans-serif;
+
+  /* Spacing */
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+
+  /* Radius */
+  --radius-4: 4px;
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-10: 10px;
+  --radius-12: 12px;
+  --radius-16: 16px;
+  --radius-pill: 999px;
+
+  /* Shadow */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.10), 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 4px 10px rgba(16, 24, 40, 0.10), 0 2px 4px rgba(16, 24, 40, 0.06);
+
+  /* Required mapping */
+  --background: var(--bg-surface-0);
+  --foreground: var(--text-primary);
+  --border: var(--border-default);
+  --focus: var(--border-focus);
+}
+
+@theme inline {
+  --color-app: var(--bg-app);
+  --color-surface-0: var(--bg-surface-0);
+  --color-surface-1: var(--bg-surface-1);
+  --color-surface-2: var(--bg-surface-2);
+  --color-overlay: var(--bg-overlay);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-border-focus: var(--border-focus);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+  --color-text-inverse: var(--text-inverse);
+
+  --color-accent-50: var(--accent-50);
+  --color-accent-100: var(--accent-100);
+  --color-accent-200: var(--accent-200);
+  --color-accent-300: var(--accent-300);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-accent-700: var(--accent-700);
+
+  --color-success-bg: var(--success-bg);
+  --color-success-fg: var(--success-fg);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-fg: var(--warning-fg);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-fg: var(--danger-fg);
+  --color-info-bg: var(--info-bg);
+  --color-info-fg: var(--info-fg);
+
+  --color-risk-critical: var(--risk-critical);
+  --color-risk-high: var(--risk-high);
+  --color-risk-medium: var(--risk-medium);
+  --color-risk-low: var(--risk-low);
+  --color-risk-info: var(--risk-info);
+
+  --font-sans: var(--font-sans);
+
+  --spacing-2: var(--space-2);
+  --spacing-4: var(--space-4);
+  --spacing-6: var(--space-6);
+  --spacing-8: var(--space-8);
+  --spacing-10: var(--space-10);
+  --spacing-12: var(--space-12);
+  --spacing-14: var(--space-14);
+  --spacing-16: var(--space-16);
+  --spacing-20: var(--space-20);
+  --spacing-24: var(--space-24);
+  --spacing-32: var(--space-32);
+
+  --radius-4: var(--radius-4);
+  --radius-6: var(--radius-6);
+  --radius-8: var(--radius-8);
+  --radius-10: var(--radius-10);
+  --radius-12: var(--radius-12);
+  --radius-16: var(--radius-16);
+  --radius-pill: var(--radius-pill);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  
+  /* Additional Tailwind 4 Base Mappings */
+  --color-border: var(--border-default);
+  --color-background: var(--bg-app);
+  --color-foreground: var(--text-primary);
+  --color-primary: var(--accent-500);
+  --color-primary-foreground: var(--text-inverse);
+  --color-secondary: var(--bg-surface-2);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted: var(--bg-surface-1);
+  --color-muted-foreground: var(--text-muted);
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--border-default, currentColor);
+  }
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    margin: 0;
+  }
+}
+
+/* Custom Component Classes corresponding to TARA specifications */
+
+/* Buttons */
+@layer components {
+  .btn-base {
+    @apply inline-flex items-center justify-center font-semibold rounded-[8px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-1;
+  }
+  
+  .btn-sm { @apply inline-flex items-center justify-center font-semibold rounded-[8px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-1 h-[30px] px-[10px] text-[12px]; }
+  .btn-md { @apply inline-flex items-center justify-center font-semibold rounded-[8px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-1 h-[34px] px-[12px] text-[13px]; }
+  .btn-lg { @apply inline-flex items-center justify-center font-semibold rounded-[8px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-1 h-[40px] px-[14px] text-[14px]; }
+
+  .btn-primary {
+    @apply bg-accent-500 text-white border border-accent-500 hover:bg-accent-600 hover:border-accent-600 active:bg-accent-700 disabled:bg-[#d1d5db] disabled:border-[#d1d5db] disabled:text-white disabled:pointer-events-none;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-text-primary border border-border-default hover:bg-surface-2 active:bg-[#e8edf1];
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-text-secondary hover:bg-surface-2 active:bg-[#e8edf1] border-transparent;
+  }
+  
+  .btn-destructive {
+    @apply bg-[#b42318] text-white border-[#b42318] hover:bg-[#912018];
+  }
+
+  /* Universal Input */
+  .input-base {
+    @apply h-[36px] rounded-[8px] border border-border-default bg-white px-[12px] text-[13px] text-text-primary placeholder:text-text-muted hover:border-border-strong focus:outline-none focus:border-border-focus focus:ring-[3px] focus:ring-[#24a06b]/15 transition-all disabled:bg-[#f7f8fa] disabled:border-[#e8ecf0] disabled:text-text-disabled;
+  }
+
+  /* Tags */
+  .tag-critical { @apply bg-[#fff1f2] text-[#b42318] px-2 py-0.5 rounded-[4px] text-[12px] font-medium; }
+  .tag-high { @apply bg-[#fff4f1] text-[#d14343] px-2 py-0.5 rounded-[4px] text-[12px] font-medium; }
+  .tag-medium { @apply bg-[#fff7e8] text-[#9a6700] px-2 py-0.5 rounded-[4px] text-[12px] font-medium; }
+  .tag-low { @apply bg-[#eefbf4] text-[#166445] px-2 py-0.5 rounded-[4px] text-[12px] font-medium; }
+
+  /* Filter Chip */
+  .filter-chip {
+    @apply h-[28px] px-[10px] rounded-[8px] border border-border-default bg-[#f8fafb] text-[12px] text-text-secondary inline-flex items-center gap-1 cursor-pointer transition-colors;
+  }
+  .filter-chip-selected {
+    @apply bg-accent-50 border-accent-200 text-accent-700;
+  }
+
+  /* Global cards */
+  .card-panel {
+    @apply bg-white border border-border-subtle rounded-[12px] p-[16px];
+  }
+  .card-interactive {
+    @apply transition-all hover:-translate-y-[1px] hover:shadow-sm cursor-pointer;
+  }
+}

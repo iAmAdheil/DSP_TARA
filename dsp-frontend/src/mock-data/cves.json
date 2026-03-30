@@ -1,0 +1,42 @@
+[
+  {
+    "cve_id": "CVE-2023-45286",
+    "severity": "Critical",
+    "component": "libexif 0.6.21",
+    "subsystem": "Infotainment",
+    "match_tier": "Exact",
+    "published_date": "2023-11-12",
+    "why_relevant": "Known vulnerable version of libexif mapped directly to Head Unit firmware manifest. Can lead to remote code execution.",
+    "cvss_base": 9.8
+  },
+  {
+    "cve_id": "CVE-2022-38392",
+    "severity": "High",
+    "component": "Linux Kernel 5.4.x",
+    "subsystem": "Telematics",
+    "match_tier": "Near",
+    "published_date": "2022-09-01",
+    "why_relevant": "Telematics gateway OS family matches Kernel 5.4 line; specific patch version unknown.",
+    "cvss_base": 7.5
+  },
+  {
+    "cve_id": "CVE-2024-21626",
+    "severity": "Medium",
+    "component": "runc",
+    "subsystem": "ADAS",
+    "match_tier": "Contextual",
+    "published_date": "2024-01-31",
+    "why_relevant": "ADAS edge nodes suspect containerized environments based on vendor profile. Runc exploit could lead to host breakout.",
+    "cvss_base": 8.6
+  },
+  {
+    "cve_id": "CVE-2021-3156",
+    "severity": "High",
+    "component": "sudo 1.8.31",
+    "subsystem": "Infotainment",
+    "match_tier": "Exact",
+    "published_date": "2021-01-26",
+    "why_relevant": "Exact version matched in diagnostic rootfs. Allows local privilege escalation.",
+    "cvss_base": 7.8
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "run_id": "8xyz-2a",
+    "timestamp": "2h ago",
+    "status": "completed",
+    "duration": "1m 12s",
+    "model_version": "v1.2.0",
+    "assets_analyzed": 24,
+    "threats_generated": 138,
+    "cve_matches": 12
+  },
+  {
+    "run_id": "7abc-1b",
+    "timestamp": "1d ago",
+    "status": "completed",
+    "duration": "1m 08s",
+    "model_version": "v1.1.5",
+    "assets_analyzed": 23,
+    "threats_generated": 132,
+    "cve_matches": 14
+  },
+  {
+    "run_id": "6def-9c",
+    "timestamp": "3d ago",
+    "status": "failed",
+    "duration": "0m 14s",
+    "model_version": "v1.1.0",
+    "assets_analyzed": 20,
+    "threats_generated": 0,
+    "cve_matches": 0
+  }
+]

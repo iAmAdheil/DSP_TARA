@@ -1,0 +1,52 @@
+[
+  {
+    "threat_id": "T-001",
+    "title": "Spoofing of Telematics Telemetry Data over LTE",
+    "category": "Spoofing",
+    "entry_points": ["Cellular LTE Antenna"],
+    "impacted_assets": ["Telematics Gateway"],
+    "safety_impact": "Medium",
+    "confidence": 0.92,
+    "status": "potential"
+  },
+  {
+    "threat_id": "T-002",
+    "title": "Unauthorized CAN Bus Message Injection via OBD-II",
+    "category": "Elevation of Privilege",
+    "entry_points": ["OBD-II Port"],
+    "impacted_assets": ["Powertrain Domain Controller"],
+    "safety_impact": "High",
+    "confidence": 0.88,
+    "status": "reviewed"
+  },
+  {
+    "threat_id": "T-003",
+    "title": "Denial of Service against ADAS Camera Feed",
+    "category": "DoS",
+    "entry_points": ["Ethernet Switch"],
+    "impacted_assets": ["ADAS Vision ECU"],
+    "safety_impact": "Critical",
+    "confidence": 0.95,
+    "status": "accepted"
+  },
+  {
+    "threat_id": "T-004",
+    "title": "Tampering of Over-The-Air Update Payload",
+    "category": "Tampering",
+    "entry_points": ["OTA Client Service"],
+    "impacted_assets": ["Firmware Repository"],
+    "safety_impact": "High",
+    "confidence": 0.75,
+    "status": "potential"
+  },
+  {
+    "threat_id": "T-005",
+    "title": "Information Disclosure of User Location via Bluetooth",
+    "category": "Information Disclosure",
+    "entry_points": ["Infotainment Bluetooth Stack"],
+    "impacted_assets": ["Head Unit"],
+    "safety_impact": "Low",
+    "confidence": 0.98,
+    "status": "reviewed"
+  }
+]

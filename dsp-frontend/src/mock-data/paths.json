@@ -1,0 +1,29 @@
+[
+  {
+    "path_id": "AP-001",
+    "start_surface": "Public LTE Network",
+    "target_asset": "ADAS Domain Controller",
+    "overall_path_risk": "Critical",
+    "feasibility_score": "Medium",
+    "impact_score": "Critical",
+    "steps": [
+      { "step": 1, "description": "Cellular connection to Telematics Gateway via unauthenticated APN" },
+      { "step": 2, "description": "Exploit CVE-2022-38392 on Linux Kernel to gain RCE" },
+      { "step": 3, "description": "Pivot from Telematics Edge to internal Automotive Ethernet backbone via Routing misconfiguration" },
+      { "step": 4, "description": "Inject forged CAN-FD frames targeting ADAS Controller via Ethernet-to-CAN bridge" }
+    ]
+  },
+  {
+    "path_id": "AP-002",
+    "start_surface": "Malicious USB Drive",
+    "target_asset": "Infotainment Head Unit",
+    "overall_path_risk": "High",
+    "feasibility_score": "High",
+    "impact_score": "Medium",
+    "steps": [
+      { "step": 1, "description": "User inserts compromised USB" },
+      { "step": 2, "description": "Exploit libexif CVE-2023-45286 during background media scanning" },
+      { "step": 3, "description": "Gain persistence via rootless container escape" }
+    ]
+  }
+]
