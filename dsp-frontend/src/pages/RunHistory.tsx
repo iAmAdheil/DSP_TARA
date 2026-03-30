@@ -1,5 +1,5 @@
 import { useStore } from '../store';
-import { FileJson, Copy, DatabaseBackup } from 'lucide-react';
+import { FileJson, DatabaseBackup, GitCompare } from 'lucide-react';
 import mockRuns from '../mock-data/runs.json';
 
 export function RunHistory() {
@@ -24,7 +24,7 @@ export function RunHistory() {
                <th className="px-[20px] py-[12px]">Run ID</th>
                <th className="px-[20px] py-[12px]">Status</th>
                <th className="px-[20px] py-[12px]">Date Executed</th>
-               <th className="px-[20px] py-[12px]">Model Vers</th>
+               <th className="px-[20px] py-[12px]">Model Version</th>
                <th className="px-[20px] py-[12px] text-right">Extracted Assets</th>
                <th className="px-[20px] py-[12px] text-right">Threats</th>
                <th className="px-[20px] py-[12px] text-center">Actions</th>
@@ -51,11 +51,15 @@ export function RunHistory() {
                  <td className="px-[20px] py-[14px] text-[14px] font-semibold text-right text-text-primary">{r.assets_analyzed}</td>
                  <td className="px-[20px] py-[14px] text-[14px] font-semibold text-right text-text-primary">{r.threats_generated}</td>
                  <td className="px-[20px] py-[14px]">
-                    <div className="flex items-center justify-center gap-[8px]">
+                     <div className="flex items-center justify-center gap-[8px]">
                        <button className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-2 rounded border border-transparent hover:border-border-default transition-all" title="View JSON Snapshot"><FileJson className="w-[14px] h-[14px]" /></button>
-                       <button className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-2 rounded border border-transparent hover:border-border-default transition-all" title="Diff Against Active"><Copy className="w-[14px] h-[14px]" /></button>
-                       {activeRunId !== r.run_id && r.status==='completed' && <button className="ml-2 text-[12px] text-accent-600 hover:text-accent-500 font-semibold" onClick={() => {}}>Restore</button>}
-                    </div>
+                       <button className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-2 rounded border border-transparent hover:border-border-default transition-all" title="Diff Against Active"><GitCompare className="w-[14px] h-[14px]" /></button>
+                       {activeRunId !== r.run_id && r.status==='completed' && (
+                         <button className="btn-secondary btn-sm ml-2" onClick={() => {}}>
+                           Restore
+                         </button>
+                       )}
+                     </div>
                  </td>
                </tr>
              ))}

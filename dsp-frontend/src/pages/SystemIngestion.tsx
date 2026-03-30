@@ -85,8 +85,8 @@ export function SystemIngestion() {
                     <p className="text-[12px] font-semibold text-text-muted mb-2 uppercase">Try exploring a template:</p>
                     <div className="flex gap-[8px] flex-wrap">
                       <span className="filter-chip hover:bg-[#e9edf1]" onClick={() => setTextInput("The infotainment unit talks to the CAN bus.")}>Connected Car Basic</span>
-                      <span className="filter-chip hover:bg-[#e9edf1]">EV Charging Station</span>
-                      <span className="filter-chip hover:bg-[#e9edf1]">V2X Component</span>
+                      <span className="filter-chip hover:bg-[#e9edf1]" onClick={() => setTextInput("An EV charging station exposes a REST API over LTE for remote management. It connects to the OCPP backend and communicates with the vehicle over ISO 15118.")}>EV Charging Station</span>
+                      <span className="filter-chip hover:bg-[#e9edf1]" onClick={() => setTextInput("A V2X roadside unit broadcasts CAM and DENM messages over 802.11p. It connects to a C-ITS backend server over TLS.")}>V2X Component</span>
                     </div>
                   </div>
                 )}
@@ -94,9 +94,25 @@ export function SystemIngestion() {
           </div>
         )}
 
+        {activeTab === 'form' && (
+          <div className="flex flex-col items-center justify-center h-[240px] text-center border border-dashed border-border-default rounded-[12px] bg-surface-1">
+            <ListTree className="w-[28px] h-[28px] text-text-disabled mb-3" />
+            <p className="text-[13px] font-semibold text-text-primary">Structured Form</p>
+            <p className="text-[12px] text-text-muted mt-1">Coming in next release</p>
+          </div>
+        )}
+        {activeTab === 'file' && (
+          <div className="flex flex-col items-center justify-center h-[240px] text-center border border-dashed border-border-default rounded-[12px] bg-surface-1">
+            <UploadCloud className="w-[28px] h-[28px] text-text-disabled mb-3" />
+            <p className="text-[13px] font-semibold text-text-primary">File Upload</p>
+            <p className="text-[12px] text-text-muted mt-1">Upload .arxml, .json, or .yaml system models</p>
+            <p className="text-[11px] text-text-disabled mt-1">Coming in next release</p>
+          </div>
+        )}
+
         {/* Footer Actions */}
         <div className="mt-[20px] flex items-center justify-between">
-          <button className="btn-secondary btn-md">
+          <button className="btn-secondary btn-md" disabled={!textInput} onClick={() => setTextInput('')}>
             Clear Input
           </button>
           <div className="flex items-center gap-[12px]">

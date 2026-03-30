@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { Route, Search, ShieldAlert, ArrowRightCircle } from 'lucide-react';
 import mockPaths from '../mock-data/paths.json';
@@ -6,14 +7,20 @@ import clsx from 'clsx';
 
 export function AttackPaths() {
   const { activeRunId } = useStore();
+  const navigate = useNavigate();
   const [selectedPath, setSelectedPath] = useState<any>(null);
 
   if (!activeRunId) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-        <Route className="w-[48px] h-[48px] text-text-muted mb-[16px]" />
+        <div className="w-[72px] h-[72px] rounded-[20px] bg-danger-bg flex items-center justify-center mb-[24px]">
+          <Route className="w-[36px] h-[36px] text-danger-fg" />
+        </div>
         <h2 className="text-[20px] font-bold text-text-primary mb-[8px]">No valid attack paths found</h2>
-        <p className="text-[13px] text-text-secondary">Please generate model and threats first.</p>
+        <p className="text-[13px] text-text-secondary mb-[24px]">Please generate model and threats first.</p>
+        <button className="btn-primary btn-md" onClick={() => navigate('/threats')}>
+          Go to Threat Generation
+        </button>
       </div>
     );
   }

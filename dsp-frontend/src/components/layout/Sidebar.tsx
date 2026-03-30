@@ -11,27 +11,23 @@ import {
   ShieldCheck, 
   Box, 
   FileText, 
-  History 
+  History,
+  Shield
 } from 'lucide-react';
 import clsx from 'clsx';
 
 const NAV_GROUPS = [
   {
-    label: 'Overview',
+    label: 'Workspace',
     items: [
       { id: 'workspace', label: 'Project Workspace', icon: LayoutDashboard, path: '/' },
     ]
   },
   {
-    label: 'Model Processing',
+    label: 'Analysis',
     items: [
       { id: 'ingestion', label: 'System Ingestion', icon: FileInput, path: '/ingestion' },
       { id: 'canonical', label: 'Model Explorer', icon: Network, path: '/explorer' },
-    ]
-  },
-  {
-    label: 'Analysis Engine',
-    items: [
       { id: 'threats', label: 'Threat Generation', icon: ShieldAlert, path: '/threats' },
       { id: 'cve', label: 'CVE Matching', icon: Bug, path: '/cve' },
       { id: 'paths', label: 'Attack Paths', icon: Route, path: '/paths' },
@@ -39,15 +35,10 @@ const NAV_GROUPS = [
     ]
   },
   {
-    label: 'Resolution',
+    label: 'Outputs',
     items: [
       { id: 'mitigation', label: 'Mitigation Planner', icon: ShieldCheck, path: '/mitigations' },
       { id: 'subsystem', label: 'Subsystem Explorer', icon: Box, path: '/subsystems' },
-    ]
-  },
-  {
-    label: 'Records',
-    items: [
       { id: 'reports', label: 'Reports & Export', icon: FileText, path: '/reports' },
       { id: 'history', label: 'Run History', icon: History, path: '/history' },
     ]
@@ -55,20 +46,22 @@ const NAV_GROUPS = [
 ];
 
 export function Sidebar() {
-  const { sidebarCollapsed } = useStore();
+  const { sidebarCollapsed, activeRunId } = useStore();
   const location = useLocation();
 
   return (
     <aside 
       className={clsx(
-        "bg-surface-1 border-r border-border-subtle p-[12px_10px] flex flex-col h-full overflow-y-auto transition-all duration-200 z-10",
+        "bg-[#f0f2f5] border-r border-border-subtle p-[12px_10px] flex flex-col h-full overflow-y-auto transition-all duration-200 z-10",
         sidebarCollapsed ? "w-[72px]" : "w-[248px]"
       )}
     >
-      {/* Workspace Selector */}
-      <div className="h-[36px] px-[10px] rounded-[8px] hover:bg-surface-2 flex items-center justify-between cursor-pointer text-primary font-semibold text-[13px] tracking-tight mb-[16px]">
-        {!sidebarCollapsed && <span>TARA Project Beta</span>}
-        <div className="w-[16px] h-[16px] rounded bg-border-strong shrink-0"></div>
+      <div className={clsx(
+        "h-[36px] rounded-[8px] hover:bg-surface-2 flex items-center cursor-pointer text-primary font-semibold text-[13px] tracking-tight mb-[16px]",
+        sidebarCollapsed ? "justify-center" : "px-[10px] justify-between"
+      )}>
+        {!sidebarCollapsed && <span className="font-semibold">TARA</span>}
+        <Shield className="w-[16px] h-[16px] text-accent-500 shrink-0" />
       </div>
 
       <nav className="flex-1 space-y-4">
@@ -87,10 +80,11 @@ export function Sidebar() {
                     <Link
                       to={item.path}
                       className={clsx(
-                        "h-[34px] px-[10px] rounded-[8px] flex items-center gap-[8px] transition-colors outline-offset-1 focus-visible:outline-2 focus-visible:outline-border-focus",
+                        "h-[34px] rounded-[8px] flex items-center transition-colors outline-offset-1 focus-visible:outline-2 focus-visible:outline-border-focus",
+                        sidebarCollapsed ? "justify-center" : "gap-[8px]",
                         isActive 
-                          ? "bg-[#e9edf1] text-text-primary" 
-                          : "text-text-secondary hover:bg-[#eef1f4] hover:text-text-primary"
+                          ? `bg-[#e9edf1] text-text-primary border-l-2 border-accent-500 ${!sidebarCollapsed ? 'pl-[8px] pr-[10px]' : ''}` 
+                          : `text-text-secondary hover:bg-[#eef1f4] hover:text-text-primary border-l-2 border-transparent ${!sidebarCollapsed ? 'pl-[8px] pr-[10px]' : ''}`
                       )}
                       title={sidebarCollapsed ? item.label : undefined}
                     >
@@ -110,7 +104,9 @@ export function Sidebar() {
       {!sidebarCollapsed && (
         <div className="p-[12px] rounded-[10px] border border-[#e7ecef] bg-linear-to-br from-[#f3f6f8] to-accent-50 relative mt-auto">
           <h4 className="text-[13px] font-semibold text-text-primary mb-1">System Status</h4>
-          <p className="text-[12px] text-text-secondary leading-tight">All modules fully operational. 248 items stored.</p>
+          <p className="text-[12px] text-text-secondary leading-tight">
+            {activeRunId ? `Run active. Operational.` : 'No active run.'}
+          </p>
         </div>
       )}
     </aside>

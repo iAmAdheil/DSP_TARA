@@ -1,14 +1,22 @@
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { FileText, Download, CheckSquare, Settings } from 'lucide-react';
 
 export function ReportsExport() {
   const { activeRunId } = useStore();
+  const navigate = useNavigate();
 
   if (!activeRunId) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-        <FileText className="w-[48px] h-[48px] text-text-muted mb-[16px]" />
+        <div className="w-[72px] h-[72px] rounded-[20px] bg-info-bg flex items-center justify-center mb-[24px]">
+          <FileText className="w-[36px] h-[36px] text-info-fg" />
+        </div>
         <h2 className="text-[20px] font-bold text-text-primary mb-[8px]">No data to export</h2>
+        <p className="text-[13px] text-text-secondary mb-[24px]">Complete the analysis pipeline before exporting.</p>
+        <button className="btn-primary btn-md" onClick={() => navigate('/mitigations')}>
+          Go to Mitigation Planner
+        </button>
       </div>
     );
   }

@@ -1,15 +1,23 @@
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { Box, Layers, Filter } from 'lucide-react';
 import clsx from 'clsx';
 
 export function SubsystemExplorer() {
   const { activeRunId } = useStore();
+  const navigate = useNavigate();
 
   if (!activeRunId) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-        <Box className="w-[48px] h-[48px] text-text-muted mb-[16px]" />
+        <div className="w-[72px] h-[72px] rounded-[20px] bg-info-bg flex items-center justify-center mb-[24px]">
+          <Box className="w-[36px] h-[36px] text-info-fg" />
+        </div>
         <h2 className="text-[20px] font-bold text-text-primary mb-[8px]">No Subsystem mapping available</h2>
+        <p className="text-[13px] text-text-secondary mb-[24px]">Ingest a system to view its subsystems.</p>
+        <button className="btn-primary btn-md" onClick={() => navigate('/ingestion')}>
+          Go to System Ingestion
+        </button>
       </div>
     );
   }

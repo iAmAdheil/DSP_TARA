@@ -1,15 +1,23 @@
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { BarChart4, ArrowRight, Activity, TrendingDown } from 'lucide-react';
 import mockRisks from '../mock-data/risks.json';
 
 export function RiskPrioritization() {
   const { activeRunId } = useStore();
+  const navigate = useNavigate();
 
   if (!activeRunId) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-        <BarChart4 className="w-[48px] h-[48px] text-text-muted mb-[16px]" />
+        <div className="w-[72px] h-[72px] rounded-[20px] bg-warning-bg flex items-center justify-center mb-[24px]">
+          <BarChart4 className="w-[36px] h-[36px] text-warning-fg" />
+        </div>
         <h2 className="text-[20px] font-bold text-text-primary mb-[8px]">No Risk Scoring performed</h2>
+        <p className="text-[13px] text-text-secondary mb-[24px]">Generate attack paths to compute risk prioritization.</p>
+        <button className="btn-primary btn-md" onClick={() => navigate('/paths')}>
+          Go to Attack Paths
+        </button>
       </div>
     );
   }

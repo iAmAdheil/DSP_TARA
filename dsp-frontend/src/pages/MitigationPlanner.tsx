@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { ShieldCheck, Plus, Link, CheckCircle, Search, TrendingDown, Clock, Activity } from 'lucide-react';
 import mockMitigations from '../mock-data/mitigations.json';
@@ -6,13 +7,20 @@ import clsx from 'clsx';
 
 export function MitigationPlanner() {
   const { activeRunId } = useStore();
+  const navigate = useNavigate();
   const [selectedMitigation, setSelectedMitigation] = useState<any>(null);
 
   if (!activeRunId) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-        <ShieldCheck className="w-[48px] h-[48px] text-text-muted mb-[16px]" />
+        <div className="w-[72px] h-[72px] rounded-[20px] bg-success-bg flex items-center justify-center mb-[24px]">
+          <ShieldCheck className="w-[36px] h-[36px] text-success-fg" />
+        </div>
         <h2 className="text-[20px] font-bold text-text-primary mb-[8px]">No mitigations generated</h2>
+        <p className="text-[13px] text-text-secondary mb-[24px]">Prioritize risks to begin mitigation planning.</p>
+        <button className="btn-primary btn-md" onClick={() => navigate('/risks')}>
+          Go to Risk Prioritization
+        </button>
       </div>
     );
   }

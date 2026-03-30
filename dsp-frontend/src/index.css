@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
@@ -197,7 +197,11 @@
   .btn-lg { @apply inline-flex items-center justify-center font-semibold rounded-[8px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-1 h-[40px] px-[14px] text-[14px]; }
 
   .btn-primary {
-    @apply bg-accent-500 text-white border border-accent-500 hover:bg-accent-600 hover:border-accent-600 active:bg-accent-700 disabled:bg-[#d1d5db] disabled:border-[#d1d5db] disabled:text-white disabled:pointer-events-none;
+    @apply bg-accent-500 text-white border border-accent-500
+      hover:bg-accent-600 hover:border-accent-600 hover:shadow-sm hover:-translate-y-px
+      active:bg-accent-700 active:translate-y-0
+      disabled:bg-[#d1d5db] disabled:border-[#d1d5db] disabled:text-white disabled:pointer-events-none
+      transition-all;
   }
 
   .btn-secondary {
@@ -236,6 +240,6 @@
     @apply bg-white border border-border-subtle rounded-[12px] p-[16px];
   }
   .card-interactive {
-    @apply transition-all hover:-translate-y-[1px] hover:shadow-sm cursor-pointer;
+    @apply transition-all hover:-translate-y-[2px] hover:shadow-md cursor-pointer;
   }
 }

@@ -1,19 +1,25 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { ShieldAlert, Download, SlidersHorizontal, ChevronRight, X } from 'lucide-react';
 import mockThreats from '../mock-data/threats.json';
 
 export function ThreatGeneration() {
   const { activeRunId } = useStore();
+  const navigate = useNavigate();
   const [selectedThreat, setSelectedThreat] = useState<any>(null);
 
   if (!activeRunId) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-        <ShieldAlert className="w-[48px] h-[48px] text-text-muted mb-[16px]" />
+        <div className="w-[72px] h-[72px] rounded-[20px] bg-warning-bg flex items-center justify-center mb-[24px]">
+          <ShieldAlert className="w-[36px] h-[36px] text-warning-fg" />
+        </div>
         <h2 className="text-[20px] font-bold text-text-primary mb-[8px]">No threats generated yet</h2>
         <p className="text-[13px] text-text-secondary mb-[24px]">Run an analysis to generate threat hypotheses from your model.</p>
-        <button className="btn-primary btn-md">Generate Threats</button>
+        <button className="btn-primary btn-md" onClick={() => navigate('/explorer')}>
+          Go to Model Explorer
+        </button>
       </div>
     );
   }
