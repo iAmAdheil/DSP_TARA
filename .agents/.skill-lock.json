@@ -1,0 +1,15 @@
+{
+  "version": 3,
+  "skills": {
+    "fastify": {
+      "source": "bobmatnyc/claude-mpm-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/bobmatnyc/claude-mpm-skills.git",
+      "skillPath": "toolchains/typescript/frameworks/fastify/SKILL.md",
+      "skillFolderHash": "2346e30b7cc29e1212ba31e238748904837beb0e",
+      "installedAt": "2026-03-31T05:57:46.271Z",
+      "updatedAt": "2026-03-31T05:57:46.271Z"
+    }
+  },
+  "dismissed": {}
+}
