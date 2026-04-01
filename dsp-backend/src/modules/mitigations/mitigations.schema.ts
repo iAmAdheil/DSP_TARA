@@ -1,5 +1,5 @@
 import { z } from "zod";
 
-export const mitigationsRequestSchema = z.object({
-  runId: z.string().optional(),
+export const getMitigationsParamsSchema = z.object({
+  runId: z.string().min(1),
 });

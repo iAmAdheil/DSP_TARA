@@ -43,13 +43,13 @@ export function TopNav() {
         <div className="h-[32px] rounded-full bg-surface-2 p-[2px] flex items-center shadow-xs ml-4 border border-border-subtle text-[12px] font-medium text-text-muted">
           <div
             onClick={() => setViewMode('edit')}
-            className={clsx("rounded-full px-3 py-1 cursor-pointer transition-all", viewMode === 'edit' ? "bg-white text-text-primary shadow-xs" : "hover:text-text-primary")}
+            className={clsx("rounded-full px-3 py-1 cursor-pointer transition-all", viewMode === 'edit' ? "bg-white text-text-primary font-semibold shadow-sm" : "text-text-muted hover:text-text-primary")}
           >
             Edit Mode
           </div>
           <div
             onClick={() => setViewMode('view')}
-            className={clsx("rounded-full px-3 py-1 cursor-pointer transition-all", viewMode === 'view' ? "bg-white text-text-primary shadow-xs" : "hover:text-text-primary")}
+            className={clsx("rounded-full px-3 py-1 cursor-pointer transition-all", viewMode === 'view' ? "bg-white text-text-primary font-semibold shadow-sm" : "text-text-muted hover:text-text-primary")}
           >
             View Mode
           </div>

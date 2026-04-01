@@ -1,5 +1,1 @@
-import { z } from "zod";
-
-export const ingestionRequestSchema = z.object({
-  runId: z.string().optional(),
-});
+// No HTTP schemas needed — ingestion is triggered internally by the orchestrator worker.

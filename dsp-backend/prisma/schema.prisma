@@ -6,3 +6,399 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ─── Enums ──────────────────────────────────────────────────────────
+
+enum UserRole {
+  owner
+  analyst
+  reviewer
+  viewer
+}
+
+enum ProjectDomain {
+  automotive
+  general_system_security
+}
+
+enum ProjectStatus {
+  active
+  archived
+}
+
+enum RunStatus {
+  queued
+  running
+  completed
+  failed
+}
+
+enum ArtifactType {
+  text
+  form
+  file
+}
+
+enum CveMatchTier {
+  exact
+  near
+  contextual
+}
+
+enum RiskSourceType {
+  threat
+  cve
+  attack_path
+}
+
+enum RiskSeverity {
+  critical
+  high
+  medium
+  low
+  info
+}
+
+enum ReportFormat {
+  json
+  md
+  pdf
+}
+
+// ─── User ───────────────────────────────────────────────────────────
+
+model User {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  role        UserRole @default(analyst)
+  createdAt   DateTime @default(now()) @map("created_at")
+  lastActiveAt DateTime @default(now()) @map("last_active_at")
+
+  projects Project[]
+  runs     Run[]
+
+  @@map("users")
+}
+
+// ─── Project ────────────────────────────────────────────────────────
+
+model Project {
+  id        String        @id @default(cuid())
+  name      String
+  domain    ProjectDomain
+  status    ProjectStatus @default(active)
+  createdBy String        @map("created_by")
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  creator User  @relation(fields: [createdBy], references: [id])
+  runs    Run[]
+
+  @@map("projects")
+}
+
+// ─── Run ────────────────────────────────────────────────────────────
+
+model Run {
+  id                    String    @id @default(cuid())
+  projectId             String    @map("project_id")
+  initiatedBy           String    @map("initiated_by")
+  status                RunStatus @default(queued)
+  failedStep            String?   @map("failed_step")
+  errorMessage          String?   @map("error_message")
+  steps                 Json      @default("{\"ingestion\":\"pending\",\"threats\":\"pending\",\"cves\":\"pending\",\"attack_paths\":\"pending\",\"risk\":\"pending\",\"mitigations\":\"pending\"}")
+  startedAt             DateTime  @default(now()) @map("started_at")
+  completedAt           DateTime? @map("completed_at")
+  modelVersion          String?   @map("model_version")
+  retrievalIndexVersion String?   @map("retrieval_index_version")
+  configSnapshot        Json?     @map("config_snapshot")
+
+  project     Project          @relation(fields: [projectId], references: [id])
+  initiator   User             @relation(fields: [initiatedBy], references: [id])
+  artifacts   InputArtifact[]
+  assets      Asset[]
+  interfaces  Interface[]
+  trustBoundaries TrustBoundary[]
+  softwareInstances SoftwareInstance[]
+  dataFlows   DataFlow[]
+  safetyFunctions SafetyFunction[]
+  threats     Threat[]
+  cveMatches  CveMatch[]
+  attackPaths AttackPath[]
+  riskItems   RiskItem[]
+  mitigations Mitigation[]
+  reports     Report[]
+
+  @@map("runs")
+}
+
+// ─── Input Artifact ─────────────────────────────────────────────────
+
+model InputArtifact {
+  id          String       @id @default(cuid())
+  runId       String       @map("run_id")
+  type        ArtifactType
+  filename    String?
+  contentHash String?      @map("content_hash")
+  uploadedAt  DateTime     @default(now()) @map("uploaded_at")
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@map("input_artifacts")
+}
+
+// ─── Canonical System Model ─────────────────────────────────────────
+
+model Asset {
+  id       String @id @default(cuid())
+  runId    String @map("run_id")
+  name     String
+  kind     String // e.g. "ECU", "sensor", "gateway", "cloud-service"
+  metadata Json?
+
+  run              Run               @relation(fields: [runId], references: [id], onDelete: Cascade)
+  softwareInstances SoftwareInstance[]
+  safetyFunctions  SafetyFunction[]
+  dataFlowsFrom    DataFlow[]        @relation("DataFlowSource")
+  dataFlowsTo      DataFlow[]        @relation("DataFlowTarget")
+  threatEntries    ThreatEntryPoint[]
+  threatImpacts    ThreatImpactedAsset[]
+  cveMatches       CveMatchAsset[]
+  attackPathTargets AttackPath[]
+
+  @@map("assets")
+}
+
+model Interface {
+  id       String @id @default(cuid())
+  runId    String @map("run_id")
+  name     String
+  protocol String? // e.g. "CAN", "Ethernet", "BLE"
+  metadata Json?
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@map("interfaces")
+}
+
+model TrustBoundary {
+  id       String @id @default(cuid())
+  runId    String @map("run_id")
+  name     String
+  metadata Json?
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@map("trust_boundaries")
+}
+
+model SoftwareInstance {
+  id       String @id @default(cuid())
+  runId    String @map("run_id")
+  assetId  String @map("asset_id")
+  name     String
+  version  String?
+  cpe      String? // CPE identifier for CVE matching
+  metadata Json?
+
+  run   Run   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("software_instances")
+}
+
+model DataFlow {
+  id           String @id @default(cuid())
+  runId        String @map("run_id")
+  sourceId     String @map("source_id")
+  targetId     String @map("target_id")
+  protocol     String?
+  dataClassification String? @map("data_classification")
+  metadata     Json?
+
+  run    Run   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  source Asset @relation("DataFlowSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Asset @relation("DataFlowTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@map("data_flows")
+}
+
+model SafetyFunction {
+  id       String @id @default(cuid())
+  runId    String @map("run_id")
+  assetId  String @map("asset_id")
+  name     String
+  asilLevel String? @map("asil_level") // ASIL A-D for automotive
+  metadata Json?
+
+  run   Run   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("safety_functions")
+}
+
+// ─── Threat ─────────────────────────────────────────────────────────
+
+model Threat {
+  id              String  @id @default(cuid())
+  runId           String  @map("run_id")
+  category        String  // STRIDE/HEAVENS category
+  description     String
+  confidence      Float
+  impactBreakdown Json?   @map("impact_breakdown")
+  evidenceRefs    Json?   @map("evidence_refs")
+
+  run          Run                   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  entryPoints  ThreatEntryPoint[]
+  impactedAssets ThreatImpactedAsset[]
+  riskItems    RiskItem[]
+
+  @@map("threats")
+}
+
+model ThreatEntryPoint {
+  threatId String @map("threat_id")
+  assetId  String @map("asset_id")
+
+  threat Threat @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  asset  Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([threatId, assetId])
+  @@map("threat_entry_points")
+}
+
+model ThreatImpactedAsset {
+  threatId String @map("threat_id")
+  assetId  String @map("asset_id")
+
+  threat Threat @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  asset  Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([threatId, assetId])
+  @@map("threat_impacted_assets")
+}
+
+// ─── CVE Match ──────────────────────────────────────────────────────
+
+model CveMatch {
+  id            String       @id @default(cuid())
+  runId         String       @map("run_id")
+  cveIdentifier String       @map("cve_identifier") // e.g. CVE-2024-1234
+  matchTier     CveMatchTier @map("match_tier")
+  matchScore    Float        @map("match_score")
+  whyRelevant   String?      @map("why_relevant")
+  publishedDate DateTime?    @map("published_date")
+
+  run         Run             @relation(fields: [runId], references: [id], onDelete: Cascade)
+  matchedAssets CveMatchAsset[]
+  riskItems   RiskItem[]
+
+  @@map("cve_matches")
+}
+
+model CveMatchAsset {
+  cveMatchId String @map("cve_match_id")
+  assetId    String @map("asset_id")
+
+  cveMatch CveMatch @relation(fields: [cveMatchId], references: [id], onDelete: Cascade)
+  asset    Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([cveMatchId, assetId])
+  @@map("cve_match_assets")
+}
+
+// ─── Attack Path ────────────────────────────────────────────────────
+
+model AttackPath {
+  id               String @id @default(cuid())
+  runId            String @map("run_id")
+  startSurface     String @map("start_surface")
+  targetAssetId    String @map("target_asset_id")
+  steps            Json   // ordered array of step objects
+  feasibilityScore Float  @map("feasibility_score")
+  impactScore      Float  @map("impact_score")
+  overallPathRisk  Float  @map("overall_path_risk")
+
+  run         Run       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  targetAsset Asset     @relation(fields: [targetAssetId], references: [id], onDelete: Cascade)
+  riskItems   RiskItem[]
+
+  @@map("attack_paths")
+}
+
+// ─── Risk Item ──────────────────────────────────────────────────────
+
+model RiskItem {
+  id               String         @id @default(cuid())
+  runId            String         @map("run_id")
+  sourceType       RiskSourceType @map("source_type")
+  threatId         String?        @map("threat_id")
+  cveMatchId       String?        @map("cve_match_id")
+  attackPathId     String?        @map("attack_path_id")
+  likelihood       Float
+  impact           Float
+  exploitability   Float
+  exposureModifier Float          @map("exposure_modifier")
+  finalScore       Float          @map("final_score")
+  severity         RiskSeverity
+
+  run        Run         @relation(fields: [runId], references: [id], onDelete: Cascade)
+  threat     Threat?     @relation(fields: [threatId], references: [id], onDelete: SetNull)
+  cveMatch   CveMatch?   @relation(fields: [cveMatchId], references: [id], onDelete: SetNull)
+  attackPath AttackPath? @relation(fields: [attackPathId], references: [id], onDelete: SetNull)
+
+  mitigationLinks MitigationRisk[]
+
+  @@map("risk_items")
+}
+
+// ─── Mitigation ─────────────────────────────────────────────────────
+
+model Mitigation {
+  id                    String @id @default(cuid())
+  runId                 String @map("run_id")
+  controlType           String @map("control_type")
+  description           String
+  estimatedEffort       String? @map("estimated_effort")
+  expectedRiskReduction Float?  @map("expected_risk_reduction")
+  validationSteps       Json?   @map("validation_steps")
+
+  run       Run              @relation(fields: [runId], references: [id], onDelete: Cascade)
+  riskLinks MitigationRisk[]
+
+  @@map("mitigations")
+}
+
+model MitigationRisk {
+  mitigationId String @map("mitigation_id")
+  riskItemId   String @map("risk_item_id")
+
+  mitigation Mitigation @relation(fields: [mitigationId], references: [id], onDelete: Cascade)
+  riskItem   RiskItem   @relation(fields: [riskItemId], references: [id], onDelete: Cascade)
+
+  @@id([mitigationId, riskItemId])
+  @@map("mitigation_risks")
+}
+
+// ─── Report / Export ────────────────────────────────────────────────
+
+enum ReportStatus {
+  queued
+  running
+  completed
+  failed
+}
+
+model Report {
+  id           String       @id @default(cuid())
+  runId        String       @map("run_id")
+  format       ReportFormat
+  status       ReportStatus @default(queued)
+  errorMessage String?      @map("error_message")
+  generatedAt  DateTime     @default(now()) @map("generated_at")
+  downloadUrl  String?      @map("download_url")
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@map("reports")
+}

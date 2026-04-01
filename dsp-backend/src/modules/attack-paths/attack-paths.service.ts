@@ -1,9 +1,13 @@
+import { prisma } from "../../db/prisma-client.js";
+
 export class AttackPathsService {
-  execute() {
-    return {
-      module: "attack-paths",
-      status: "placeholder",
-      message: "Business logic will be implemented in next phase",
-    };
+  async getByRunId(runId: string) {
+    return prisma.attackPath.findMany({
+      where: { runId },
+      include: {
+        targetAsset: { select: { id: true, name: true, kind: true } },
+      },
+      orderBy: { overallPathRisk: "desc" },
+    });
   }
 }

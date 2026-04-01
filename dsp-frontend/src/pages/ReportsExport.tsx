@@ -1,10 +1,34 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
-import { FileText, Download, CheckSquare, Settings } from 'lucide-react';
+import { FileText, Download, Settings } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+
+const REPORT_SECTIONS = [
+  { id: 'context', label: 'System Context Model (Assets, Boundaries)' },
+  { id: 'threats', label: 'Threat Register' },
+  { id: 'cve', label: 'CVE Matching Audit' },
+  { id: 'paths', label: 'Attack Path Analysis' },
+  { id: 'risks', label: 'Risk Prioritization Scoring Math' },
+  { id: 'mitigations', label: 'Mitigation & Action Plan' },
+];
 
 export function ReportsExport() {
   const { activeRunId } = useStore();
   const navigate = useNavigate();
+  const [selectedSections, setSelectedSections] = useState<Set<string>>(
+    new Set(REPORT_SECTIONS.map(s => s.id))
+  );
+  const [selectedFormat, setSelectedFormat] = useState<'PDF' | 'JSON' | 'MD'>('PDF');
+
+  const toggleSection = (id: string) => {
+    setSelectedSections(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   if (!activeRunId) {
     return (
@@ -38,22 +62,42 @@ export function ReportsExport() {
 
            <div className="mb-[20px]">
              <h4 className="text-[12px] font-semibold text-text-muted uppercase tracking-wider mb-3">Include Sections</h4>
-             <div className="space-y-[12px] text-[13px] font-medium text-text-primary">
-               <label className="flex items-center gap-[8px] cursor-pointer"><CheckSquare className="w-[16px] h-[16px] text-accent-500"/> System Context Model (Assets, Boundaries)</label>
-               <label className="flex items-center gap-[8px] cursor-pointer"><CheckSquare className="w-[16px] h-[16px] text-accent-500"/> Threat Register</label>
-               <label className="flex items-center gap-[8px] cursor-pointer"><CheckSquare className="w-[16px] h-[16px] text-accent-500"/> CVE Matching Audit</label>
-               <label className="flex items-center gap-[8px] cursor-pointer"><CheckSquare className="w-[16px] h-[16px] text-accent-500"/> Attack Path Analysis</label>
-               <label className="flex items-center gap-[8px] cursor-pointer"><CheckSquare className="w-[16px] h-[16px] text-accent-500"/> Risk Prioritization Scoring Math</label>
-               <label className="flex items-center gap-[8px] cursor-pointer"><CheckSquare className="w-[16px] h-[16px] text-accent-500"/> Mitigation & Action Plan</label>
+             <div className="space-y-[12px]">
+               {REPORT_SECTIONS.map(section => (
+                 <div key={section.id} className="flex items-center gap-[8px]">
+                   <Checkbox
+                     id={`section-${section.id}`}
+                     checked={selectedSections.has(section.id)}
+                     onCheckedChange={() => toggleSection(section.id)}
+                     className="h-[16px] w-[16px] shrink-0 rounded-[4px] border-border-default data-[state=checked]:bg-accent-500 data-[state=checked]:border-accent-500"
+                   />
+                   <Label
+                     htmlFor={`section-${section.id}`}
+                     className="text-[13px] font-medium text-text-primary cursor-pointer leading-tight"
+                   >
+                     {section.label}
+                   </Label>
+                 </div>
+               ))}
              </div>
            </div>
 
            <div className="pt-[20px] border-t border-border-subtle">
              <h4 className="text-[12px] font-semibold text-text-muted uppercase tracking-wider mb-3">Format</h4>
              <div className="grid grid-cols-3 gap-[8px] mb-[20px]">
-               <button className="h-[36px] border-2 border-accent-500 bg-accent-50 text-accent-700 font-bold rounded-[8px] text-[13px]">PDF</button>
-               <button className="h-[36px] border border-border-default hover:bg-surface-2 text-text-primary font-semibold rounded-[8px] text-[13px]">JSON</button>
-               <button className="h-[36px] border border-border-default hover:bg-surface-2 text-text-primary font-semibold rounded-[8px] text-[13px]">MD</button>
+               {(['PDF', 'JSON', 'MD'] as const).map(fmt => (
+                 <button
+                   key={fmt}
+                   onClick={() => setSelectedFormat(fmt)}
+                   className={`h-[36px] rounded-[8px] text-[13px] font-semibold transition-all ${
+                     selectedFormat === fmt
+                       ? 'border-2 border-accent-500 bg-accent-50 text-accent-700'
+                       : 'border border-border-default hover:bg-surface-2 text-text-primary'
+                   }`}
+                 >
+                   {fmt}
+                 </button>
+               ))}
              </div>
 
              <button className="btn-primary w-full h-[40px] text-[14px] flex items-center justify-center gap-[8px]">
@@ -67,7 +111,7 @@ export function ReportsExport() {
            <div className="flex-1 bg-white shadow-sm border border-border-subtle p-[40px] rounded-[4px] mx-auto w-full max-w-[700px] overflow-y-auto">
               <h1 className="text-[28px] font-bold text-text-primary mb-[8px]">TARA Security Baseline Report</h1>
               <p className="text-[13px] text-text-muted mb-[32px] border-b border-border-subtle pb-[20px]">Run ID: {activeRunId} • Generated: Just now</p>
-              
+
               <div className="space-y-[24px]">
                  <div className="h-[20px] w-1/3 bg-[#f2f4f6] rounded"></div>
                  <div className="space-y-2">

@@ -1,4 +1,8 @@
-export interface UsersModel {
+export interface UserResponse {
   id: string;
-  module: "users";
+  name: string;
+  email: string;
+  role: string;
+  createdAt: Date;
+  lastActiveAt: Date;
 }

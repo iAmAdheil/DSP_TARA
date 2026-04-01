@@ -1,4 +1,9 @@
-export interface ExportsModel {
+export interface ReportResponse {
   id: string;
-  module: "exports";
+  runId: string;
+  format: string;
+  status: string;
+  errorMessage: string | null;
+  generatedAt: Date;
+  downloadUrl: string | null;
 }

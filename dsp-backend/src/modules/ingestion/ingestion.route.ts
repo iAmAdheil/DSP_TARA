@@ -1,12 +1,7 @@
 import type { FastifyInstance } from "fastify";
-import { IngestionController } from "./ingestion.controller.js";
 
-const controller = new IngestionController();
-
-export function registerIngestionRoutes(app: FastifyInstance) {
-  app.route({
-    method: "POST",
-    url: "/runs/:runId/ingestion",
-    handler: controller.ingestRunContext.bind(controller),
-  });
+// Ingestion is handled internally by the orchestrator worker.
+// No HTTP routes needed — this module exists for the worker logic only.
+export function registerIngestionRoutes(_app: FastifyInstance) {
+  // no-op
 }

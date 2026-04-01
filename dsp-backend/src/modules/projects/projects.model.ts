@@ -1,4 +1,8 @@
-export interface ProjectsModel {
+export interface ProjectResponse {
   id: string;
-  module: "projects";
+  name: string;
+  domain: string;
+  status: string;
+  createdBy: string;
+  createdAt: Date;
 }

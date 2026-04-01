@@ -1,5 +1,5 @@
 import { z } from "zod";
 
-export const cvesRequestSchema = z.object({
-  runId: z.string().optional(),
+export const getCvesParamsSchema = z.object({
+  runId: z.string().min(1),
 });

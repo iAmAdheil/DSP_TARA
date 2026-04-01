@@ -1,0 +1,4 @@
+interface:
+  display_name: "Senior Frontend Engineer"
+  short_description: "Enforce frontend architecture and quality gates"
+  default_prompt: "Use $senior-frontend-engineer to implement this frontend task with strict architecture, reuse, and quality standards."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "shadcn Component Puller"
+  short_description: "Check and add shadcn components safely"
+  default_prompt: "Use $shadcn-component-puller to verify and install a shadcn component in my project."

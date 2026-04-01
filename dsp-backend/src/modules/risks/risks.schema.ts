@@ -1,5 +1,5 @@
 import { z } from "zod";
 
-export const risksRequestSchema = z.object({
-  runId: z.string().optional(),
+export const getRisksParamsSchema = z.object({
+  runId: z.string().min(1),
 });

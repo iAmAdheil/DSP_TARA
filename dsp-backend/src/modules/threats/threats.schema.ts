@@ -1,5 +1,5 @@
 import { z } from "zod";
 
-export const threatsRequestSchema = z.object({
-  runId: z.string().optional(),
+export const getThreatsParamsSchema = z.object({
+  runId: z.string().min(1),
 });

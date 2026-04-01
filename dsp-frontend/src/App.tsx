@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { Shell } from './components/layout/Shell';
+import { AuthPage } from './pages/AuthPage';
 import { ProjectWorkspace } from './pages/ProjectWorkspace';
 import { SystemIngestion } from './pages/SystemIngestion';
 import { ThreatGeneration } from './pages/ThreatGeneration';
@@ -16,6 +17,7 @@ import { RunHistory } from './pages/RunHistory';
 function App() {
   return (
     <Routes>
+      <Route path="/auth" element={<AuthPage />} />
       <Route path="/" element={<Shell />}>
         {/* Module Routes */}
         <Route index element={<ProjectWorkspace />} />

@@ -56,10 +56,10 @@ export function SubsystemExplorer() {
                key={i} 
                className={clsx(
                  "border-2 border-transparent rounded-[12px] flex flex-col items-center justify-center cursor-pointer transition-all hover:border-[#1b7f55] group relative overflow-hidden",
-                 sub.heat === 'Critical' ? "bg-[rgba(180,35,24,0.1)] border-[rgba(180,35,24,0.2)] hover:border-[rgba(180,35,24,0.72)]" :
-                 sub.heat === 'High' ? "bg-[rgba(209,67,67,0.1)] border-[rgba(209,67,67,0.2)] hover:border-[rgba(209,67,67,0.64)]" :
-                 sub.heat === 'Medium' ? "bg-[rgba(194,122,16,0.1)] border-[rgba(194,122,16,0.2)] hover:border-[rgba(194,122,16,0.56)]" :
-                 "bg-[rgba(47,133,90,0.1)] border-[rgba(47,133,90,0.2)] hover:border-[rgba(47,133,90,0.52)]"
+                 sub.heat === 'Critical' ? "bg-[rgba(180,35,24,0.12)] border-[rgba(180,35,24,0.45)] hover:border-[rgba(180,35,24,0.72)]" :
+                 sub.heat === 'High' ? "bg-[rgba(209,67,67,0.12)] border-[rgba(209,67,67,0.45)] hover:border-[rgba(209,67,67,0.64)]" :
+                 sub.heat === 'Medium' ? "bg-[rgba(194,122,16,0.12)] border-[rgba(194,122,16,0.45)] hover:border-[rgba(194,122,16,0.56)]" :
+                 "bg-[rgba(47,133,90,0.12)] border-[rgba(47,133,90,0.45)] hover:border-[rgba(47,133,90,0.52)]"
                )}
              >
                 <h3 className="text-[18px] font-bold text-text-primary z-10">{sub.name}</h3>

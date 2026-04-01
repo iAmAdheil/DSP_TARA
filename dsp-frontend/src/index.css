@@ -132,18 +132,6 @@
 
   --font-sans: var(--font-sans);
 
-  --spacing-2: var(--space-2);
-  --spacing-4: var(--space-4);
-  --spacing-6: var(--space-6);
-  --spacing-8: var(--space-8);
-  --spacing-10: var(--space-10);
-  --spacing-12: var(--space-12);
-  --spacing-14: var(--space-14);
-  --spacing-16: var(--space-16);
-  --spacing-20: var(--space-20);
-  --spacing-24: var(--space-24);
-  --spacing-32: var(--space-32);
-
   --radius-4: var(--radius-4);
   --radius-6: var(--radius-6);
   --radius-8: var(--radius-8);

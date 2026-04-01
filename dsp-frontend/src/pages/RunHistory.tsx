@@ -53,7 +53,7 @@ export function RunHistory() {
                  <td className="px-[20px] py-[14px]">
                      <div className="flex items-center justify-center gap-[8px]">
                        <button className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-2 rounded border border-transparent hover:border-border-default transition-all" title="View JSON Snapshot"><FileJson className="w-[14px] h-[14px]" /></button>
-                       <button className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-2 rounded border border-transparent hover:border-border-default transition-all" title="Diff Against Active"><GitCompare className="w-[14px] h-[14px]" /></button>
+                       {r.status === 'completed' && <button className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-2 rounded border border-transparent hover:border-border-default transition-all" title="Diff Against Active"><GitCompare className="w-[14px] h-[14px]" /></button>}
                        {activeRunId !== r.run_id && r.status==='completed' && (
                          <button className="btn-secondary btn-sm ml-2" onClick={() => {}}>
                            Restore

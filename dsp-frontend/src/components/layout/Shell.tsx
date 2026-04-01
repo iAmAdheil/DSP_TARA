@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopNav } from './TopNav';
+import { Check } from 'lucide-react';
 import clsx from 'clsx';
 
 const PIPELINE_STEPS = [
@@ -32,17 +33,20 @@ function PipelineProgress() {
                 isActive ? "text-accent-600" : isCompleted ? "text-text-primary" : "text-text-disabled"
               )}>
                 <div className={clsx(
-                  "w-[14px] h-[14px] rounded-full flex justify-center items-center text-[9px] font-bold border",
-                  isActive ? "bg-accent-50 text-accent-700 border-accent-500" : 
-                  isCompleted ? "bg-surface-2 text-text-secondary border-transparent" : 
+                  "w-[16px] h-[16px] rounded-full flex justify-center items-center border shrink-0",
+                  isActive ? "bg-accent-500 text-white border-accent-500" :
+                  isCompleted ? "bg-accent-500 text-white border-accent-500" :
                   "bg-transparent border-border-strong text-text-disabled"
                 )}>
-                  {idx + 1}
+                  {isCompleted
+                    ? <Check className="w-[9px] h-[9px]" strokeWidth={3} />
+                    : <span className="text-[9px] font-bold">{idx + 1}</span>
+                  }
                 </div>
                 {step.label}
               </span>
               {idx < PIPELINE_STEPS.length - 1 && (
-                <div className="w-[16px] h-px bg-border-strong mx-1" />
+                <div className={clsx("w-[16px] h-px mx-1", idx < currentIndex ? "bg-accent-500" : "bg-border-strong")} />
               )}
             </div>
           )

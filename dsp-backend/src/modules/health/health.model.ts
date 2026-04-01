@@ -1,4 +1,4 @@
 export interface HealthModel {
-  module: "health";
   status: "ok" | "degraded";
+  db: "connected" | "disconnected";
 }

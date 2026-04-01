@@ -1,3 +1,11 @@
 import { z } from "zod";
 
-export const usersRequestSchema = z.object({});
+export const createUserSchema = z.object({
+  name: z.string().min(1).max(255),
+  email: z.string().email(),
+  role: z.enum(["owner", "analyst", "reviewer", "viewer"]).optional(),
+});
+
+export const getUserParamsSchema = z.object({
+  userId: z.string().min(1),
+});

@@ -1,0 +1,4 @@
+interface:
+  display_name: "React shadcn Tailwind Builder"
+  short_description: "Build React UIs with shadcn and Tailwind"
+  default_prompt: "Use $react-shadcn-tailwind-builder to implement this UI feature with React, shadcn, and Tailwind best practices."

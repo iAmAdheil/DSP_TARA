@@ -1,4 +1,3 @@
-export interface IngestionModel {
-  id: string;
-  module: "ingestion";
+export interface IngestionResult {
+  artifactsProcessed: number;
 }
