@@ -5,6 +5,18 @@
 
 ---
 
+## Iteration 1 Status — 2026-04-01
+
+**Completed (scaffold/stub):** All infrastructure (INF-1 to INF-4), all 7 worker stubs, all HTTP routes scaffolded. TypeScript compiles clean.
+
+**Not done / stubs only:** All real implementation logic — LLM calls (steps 1, 2, 6), CVE matching (step 3), graph traversal (step 4), config-driven scoring (step 5), real file generation + S3 upload (step 7).
+
+**Flagged for discussion (iteration 2):** Auth layer, sibling cancellation race, `steps` JSON atomicity, input artifact upload route, DB migration, error handler completeness, CORS.
+
+See `backend/Iteration-1-Findings.md` and `backend/Iteration-1-Decisions.md` for full findings and resolution decisions.
+
+---
+
 ## Pipeline Map
 
 ```
@@ -36,14 +48,14 @@ Step 7 is enqueued only on explicit `POST /runs/:id/exports`.
 
 These must be complete before any step worker can run.
 
-### INF-1 — BullMQ + Redis setup
-- [ ] Install: `bullmq`, `ioredis`
-- [ ] Create `src/queues/redis-connection.ts` — shared `ioredis` instance
-- [ ] Create `src/queues/queue-names.ts` — constants for all 7 queue names
-- [ ] Create `src/queues/run-queue.ts` — exports `Queue` instances (producer-side)
-- [ ] Register graceful shutdown: `worker.close()` on SIGINT/SIGTERM
+### INF-1 — BullMQ + Redis setup ✅ Done (iteration 1)
+- [x] Install: `bullmq`, `ioredis`
+- [x] Create `src/queues/redis-connection.ts` — shared `ioredis` instance
+- [x] Create `src/queues/queue-names.ts` — constants for all 7 queue names
+- [x] Create `src/queues/run-queue.ts` — exports `Queue` instances (producer-side)
+- [x] Register graceful shutdown: `worker.close()` on SIGINT/SIGTERM
 
-### INF-2 — Prisma schema additions for Run progress
+### INF-2 — Prisma schema additions for Run progress ✅ Schema done, ⚠️ migration pending
 Add to `Run` model in `prisma/schema.prisma`:
 ```prisma
 status          RunStatus   @default(QUEUED)
@@ -53,21 +65,21 @@ steps           Json        @default("{}")  // StepStatus map
 startedAt       DateTime?
 completedAt     DateTime?
 ```
-- [ ] `RunStatus` enum: `QUEUED | RUNNING | COMPLETED | FAILED`
-- [ ] `StepStatus` type: `"pending" | "running" | "completed" | "failed"`
-- [ ] Run migration
+- [x] `RunStatus` enum: `QUEUED | RUNNING | COMPLETED | FAILED`
+- [x] `StepStatus` type: `"pending" | "running" | "completed" | "failed"`
+- [ ] Run migration  ← **blocked: must run `prisma migrate dev` before any testing**
 
-### INF-3 — Run progress helper
-- [ ] Create `src/utils/run-progress.ts`
-  - `setStepRunning(runId, step)` — atomic DB update
-  - `setStepCompleted(runId, step)` — atomic DB update
-  - `failRun(runId, step, message)` — sets `status=FAILED`, `failedStep`, `errorMessage`
-  - `completeRun(runId)` — sets `status=COMPLETED`, `completedAt`
+### INF-3 — Run progress helper ✅ Done (iteration 1)
+- [x] Create `src/utils/run-progress.ts`
+  - [x] `setStepRunning(runId, step)` — atomic DB update
+  - [x] `setStepCompleted(runId, step)` — atomic DB update
+  - [x] `failRun(runId, step, message)` — sets `status=FAILED`, `failedStep`, `errorMessage`
+  - [x] `completeRun(runId)` — sets `status=COMPLETED`, `completedAt`
 
-### INF-4 — Gate check helper (D3 — hard stop)
-- [ ] Create `src/utils/gate-check.ts`
-  - `assertRunActive(runId)` — reads `Run.status`; throws `RunCancelledError` if `FAILED`
-  - Import and call at the top of every worker processor before doing any work
+### INF-4 — Gate check helper (D3 — hard stop) ✅ Done (iteration 1)
+- [x] Create `src/utils/gate-check.ts`
+  - [x] `assertRunActive(runId)` — reads `Run.status`; throws `RunCancelledError` if `FAILED`
+  - [x] Import and call at the top of every worker processor before doing any work
 
 ---
 
@@ -79,27 +91,27 @@ completedAt     DateTime?
 > No dedicated route for this step.
 
 ### Worker tasks (`src/workers/ingestion.worker.ts`)
-- [ ] Create BullMQ `Worker` on queue `ingestion` (or handled inline by orchestrator — see orchestrator note below)
-- [ ] Gate check: `await assertRunActive(runId)`
-- [ ] `setStepRunning(runId, "ingestion")`
-- [ ] Fetch all `InputArtifact` records for this `runId` from DB
-- [ ] Parse each artifact type:
-  - `text` → extract entities via LLM structured extraction
-  - `form` → map structured fields to canonical types
-  - `file` (CSV/JSON/YAML) → parse and normalize
-- [ ] Build canonical graph:
-  - Identify and write `Asset[]` — name, type, subsystem tag
-  - Identify and write `Interface[]` — protocol, direction, endpoints
-  - Identify and write `TrustBoundary[]` — boundary type, crossing interfaces
-  - Identify and write `SoftwareInstance[]` — name, version, CPE candidate, parent asset
-  - Identify and write `DataFlow[]` — source, target, data classification
-  - Identify and write `SafetyFunction[]` — linked assets
-- [ ] Compute `modelQualityScore` (0–1) based on completeness of extracted fields
-- [ ] Write `CanonicalModel` record to DB with `runId`
-- [ ] Write assumption register (list of inferred values) to DB
-- [ ] Write missing-data checklist to DB
-- [ ] `setStepCompleted(runId, "ingestion")`
-- [ ] On any error: `failRun(runId, "ingestion", err.message)` then rethrow
+
+> **Updated approach (iteration 2):** Free-form text only. Two-source LLM extraction — project system context + run component context combined into a single structured LLM call. No form/file parsing. See `backend/Iteration-1-Decisions.md #1`.
+
+- [x] Create BullMQ `Worker` on queue `ingestion` (handled inline by orchestrator)
+- [x] Gate check: `await assertRunActive(runId)`
+- [x] `setStepRunning(runId, "ingestion")`
+- [ ] Fetch `Project.systemContext` for the run's parent project
+- [ ] Fetch all `InputArtifact` records (`type: "text"` only) for this `runId`
+- [ ] Combine into LLM prompt: system context + component context
+- [ ] Call LLM with structured output to extract canonical graph:
+  - [ ] `Asset[]` — name, type, subsystemTag
+  - [ ] `Interface[]` — protocol, direction, endpointAssets
+  - [ ] `TrustBoundary[]` — boundaryType, crossingInterfaces
+  - [ ] `SoftwareInstance[]` — name, version, cpeCandidate, parentAsset
+  - [ ] `DataFlow[]` — source, target, dataClassification
+  - [ ] `SafetyFunction[]` — description, linkedAssets
+- [ ] Write all extracted entities to DB with `runId`
+- [ ] Compute `modelQualityScore` (0–1) — ratio of non-null fields vs total possible
+- [ ] Write `CanonicalModel` record linking all entities to this run
+- [x] `setStepCompleted(runId, "ingestion")`
+- [x] On any error: `failRun(runId, "ingestion", err.message)` then rethrow
 
 ### DB writes this step
 | Table | Operation |
@@ -124,22 +136,22 @@ completedAt     DateTime?
 > Orchestrator proceeds to step 4 only after both complete (D4).
 
 ### Worker tasks (`src/workers/threats.worker.ts`)
-- [ ] Create BullMQ `Worker` on queue `threats-generation`
-- [ ] Gate check: `await assertRunActive(runId)`
-- [ ] `setStepRunning(runId, "threats")`
-- [ ] Fetch `CanonicalModel` + `Asset[]` + `Interface[]` + `TrustBoundary[]` for `runId`
-- [ ] For each trust boundary crossing / exposed interface:
-  - Construct LLM prompt with system context + threat framework config
-  - Call LLM (structured output / function calling)
-  - Parse response into `Threat` shape
+- [x] Create BullMQ `Worker` on queue `threats-generation`
+- [x] Gate check: `await assertRunActive(runId)`
+- [x] `setStepRunning(runId, "threats")`
+- [x] Fetch `CanonicalModel` + `Asset[]` + `Interface[]` + `TrustBoundary[]` for `runId`
+- [ ] For each trust boundary crossing / exposed interface:  ← **stub: no LLM integration**
+  - [ ] Construct LLM prompt with system context + threat framework config
+  - [ ] Call LLM (structured output / function calling)
+  - [ ] Parse response into `Threat` shape
 - [ ] For each generated threat:
-  - Validate required fields: `category`, `entryPoints[]`, `impactedAssets[]`
-  - Assign `confidence` score (model-reported or heuristic fallback)
-  - Map `evidenceRefs[]` to source asset/interface IDs
-- [ ] Bulk insert `Threat[]` to DB with `runId`
+  - [ ] Validate required fields: `category`, `entryPoints[]`, `impactedAssets[]`
+  - [ ] Assign `confidence` score (model-reported or heuristic fallback)
+  - [ ] Map `evidenceRefs[]` to source asset/interface IDs
+- [x] Bulk insert `Threat[]` to DB with `runId`  ← **stub: one placeholder per asset**
 - [ ] Compute threat coverage stats by subsystem — write to `RunStats` or embedded JSON
-- [ ] `setStepCompleted(runId, "threats")`
-- [ ] On any error: `failRun(runId, "threats", err.message)` then rethrow
+- [x] `setStepCompleted(runId, "threats")`
+- [x] On any error: `failRun(runId, "threats", err.message)` then rethrow
 
 ### DB writes this step
 | Table | Operation |
@@ -164,25 +176,25 @@ completedAt     DateTime?
 - [ ] Add pgvector index: `CREATE INDEX ON cve_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)`
 
 ### Worker tasks (`src/workers/cves.worker.ts`)
-- [ ] Create BullMQ `Worker` on queue `cve-matching`
-- [ ] Gate check: `await assertRunActive(runId)`
-- [ ] `setStepRunning(runId, "cves")`
-- [ ] Fetch `SoftwareInstance[]` for `runId` (name, version, CPE candidate)
-- [ ] For each software instance:
-  - **Exact / near tier**: derive CPE string → query NVD API directly → score matches
-    - `exact` — CPE match confirmed
-    - `near` — partial CPE match (version range overlap)
-  - **Contextual tier**: embed software component description via Gemini `gemini-embedding-2-preview` → pgvector cosine similarity query against `cve_embeddings` → top-K results above threshold
-  - Merge results from both tiers, deduplicate by `cveId`
-  - Filter results below match-score threshold
+- [x] Create BullMQ `Worker` on queue `cve-matching`
+- [x] Gate check: `await assertRunActive(runId)`
+- [x] `setStepRunning(runId, "cves")`
+- [x] Fetch `SoftwareInstance[]` for `runId` (name, version, CPE candidate)
+- [ ] For each software instance:  ← **stub: no NVD/embedding integration**
+  - [ ] **Exact / near tier**: derive CPE string → query NVD API directly → score matches
+    - [ ] `exact` — CPE match confirmed
+    - [ ] `near` — partial CPE match (version range overlap)
+  - [ ] **Contextual tier**: embed software component description via Gemini → pgvector cosine similarity query → top-K results above threshold
+  - [ ] Merge results from both tiers, deduplicate by `cveId`
+  - [ ] Filter results below match-score threshold
 - [ ] Enrich each match with:
-  - `whyRelevant` rationale string
-  - `publishedDate`
-  - `matchedAssets[]` — derived from software-to-asset linkage
-- [ ] Bulk insert `CVEMatch[]` to DB with `runId`
+  - [ ] `whyRelevant` rationale string
+  - [ ] `publishedDate`
+  - [ ] `matchedAssets[]` — derived from software-to-asset linkage
+- [x] Bulk insert `CVEMatch[]` to DB with `runId`  ← **stub: one placeholder per software instance**
 - [ ] Tag contextual-tier matches with `uncertainty_label` flag
-- [ ] `setStepCompleted(runId, "cves")`
-- [ ] On any error: `failRun(runId, "cves", err.message)` then rethrow
+- [x] `setStepCompleted(runId, "cves")`
+- [x] On any error: `failRun(runId, "cves", err.message)` then rethrow
 
 ### DB writes this step
 | Table | Operation |
@@ -219,28 +231,28 @@ The orchestrator worker (on `run-pipeline` queue) handles sequencing.
 **Goal:** Build multi-step adversarial routes through the system graph.
 
 ### Worker tasks (`src/workers/attack-paths.worker.ts`)
-- [ ] Create BullMQ `Worker` on queue `attack-paths`
-- [ ] Gate check: `await assertRunActive(runId)`
-- [ ] `setStepRunning(runId, "attack_paths")`
-- [ ] Fetch `CanonicalModel` graph + `Threat[]` + `CVEMatch[]` for `runId`
-- [ ] Build adjacency representation of canonical graph (asset → interface → asset)
+- [x] Create BullMQ `Worker` on queue `attack-paths`
+- [x] Gate check: `await assertRunActive(runId)`
+- [x] `setStepRunning(runId, "attack_paths")`
+- [x] Fetch `CanonicalModel` graph + `Threat[]` + `CVEMatch[]` for `runId`
+- [ ] Build adjacency representation of canonical graph  ← **stub: no real graph traversal**
 - [ ] For each threat + associated CVEs:
-  - Identify entry point(s) on the graph
-  - Run graph traversal (BFS/DFS) toward high-value target assets
-  - Enumerate feasible multi-hop routes considering:
-    - Trust boundary crossings (each crossing increases cost)
-    - CVE exploitability scores at each hop
-    - Data flow directions (must traverse in permitted direction)
-  - Prune paths exceeding a max-hop threshold (config)
+  - [ ] Identify entry point(s) on the graph
+  - [ ] Run graph traversal (BFS/DFS) toward high-value target assets
+  - [ ] Enumerate feasible multi-hop routes considering:
+    - [ ] Trust boundary crossings (each crossing increases cost)
+    - [ ] CVE exploitability scores at each hop
+    - [ ] Data flow directions (must traverse in permitted direction)
+  - [ ] Prune paths exceeding a max-hop threshold (config)
 - [ ] For each path:
-  - Compute `feasibilityScore` (0–1) — function of CVE CVSS + hop count + boundary count
-  - Compute `impactScore` (0–1) — derived from target asset safety/criticality flags
-  - Compute `overallPathRisk = feasibility × impact`
-  - Link `evidenceRefs[]` to threats/CVEs used
+  - [ ] Compute `feasibilityScore` (0–1) — function of CVE CVSS + hop count + boundary count
+  - [ ] Compute `impactScore` (0–1) — derived from target asset safety/criticality flags
+  - [ ] Compute `overallPathRisk = feasibility × impact`
+  - [ ] Link `evidenceRefs[]` to threats/CVEs used
 - [ ] Rank paths by `overallPathRisk` descending
-- [ ] Bulk insert `AttackPath[]` to DB
-- [ ] `setStepCompleted(runId, "attack_paths")`
-- [ ] On any error: `failRun(runId, "attack_paths", err.message)` then rethrow
+- [x] Bulk insert `AttackPath[]` to DB  ← **stub: one placeholder per threat**
+- [x] `setStepCompleted(runId, "attack_paths")`
+- [x] On any error: `failRun(runId, "attack_paths", err.message)` then rethrow
 
 ### DB writes this step
 | Table | Operation |
@@ -255,22 +267,22 @@ The orchestrator worker (on `run-pipeline` queue) handles sequencing.
 **Goal:** Produce a unified, ranked risk register from threats, CVEs, and attack paths.
 
 ### Worker tasks (`src/workers/risk.worker.ts`)
-- [ ] Create BullMQ `Worker` on queue `risk-scoring`
-- [ ] Gate check: `await assertRunActive(runId)`
-- [ ] `setStepRunning(runId, "risk")`
-- [ ] Fetch `Threat[]`, `CVEMatch[]`, `AttackPath[]` for `runId`
-- [ ] Fetch `Run.config_snapshot` to read scoring profile weights
-- [ ] For each source item (threat / cve / attack path):
-  - Compute `likelihood` — based on threat confidence / CVE exploitability / path feasibility
-  - Compute `impact` — based on impacted assets' criticality tags
-  - Compute `exploitability` — CVSS base score (for CVEs) or heuristic (for threats)
-  - Apply `exposureModifier` — based on internet-facing interfaces or missing controls
-  - Compute `finalScore = weighted_sum(likelihood, impact, exploitability, exposureModifier)`
-  - Assign `severity` bucket: `critical | high | medium | low` based on score thresholds
-  - Store explainability breakdown: per-factor contributions as JSON
-- [ ] Bulk insert `RiskItem[]` to DB, ordered by `finalScore` DESC
-- [ ] `setStepCompleted(runId, "risk")`
-- [ ] On any error: `failRun(runId, "risk", err.message)` then rethrow
+- [x] Create BullMQ `Worker` on queue `risk-scoring`
+- [x] Gate check: `await assertRunActive(runId)`
+- [x] `setStepRunning(runId, "risk")`
+- [x] Fetch `Threat[]`, `CVEMatch[]`, `AttackPath[]` for `runId`
+- [ ] Fetch `Run.config_snapshot` to read scoring profile weights  ← **stub: fixed weights used**
+- [ ] For each source item (threat / cve / attack path):  ← **stub: hardcoded formula**
+  - [ ] Compute `likelihood` — based on threat confidence / CVE exploitability / path feasibility
+  - [ ] Compute `impact` — based on impacted assets' criticality tags
+  - [ ] Compute `exploitability` — CVSS base score (for CVEs) or heuristic (for threats)
+  - [ ] Apply `exposureModifier` — based on internet-facing interfaces or missing controls
+  - [ ] Compute `finalScore = weighted_sum(likelihood, impact, exploitability, exposureModifier)`
+  - [ ] Assign `severity` bucket: `critical | high | medium | low` based on score thresholds
+  - [ ] Store explainability breakdown: per-factor contributions as JSON
+- [x] Bulk insert `RiskItem[]` to DB  ← **stub: fixed score per item**
+- [x] `setStepCompleted(runId, "risk")`
+- [x] On any error: `failRun(runId, "risk", err.message)` then rethrow
 
 ### DB writes this step
 | Table | Operation |
@@ -285,24 +297,24 @@ The orchestrator worker (on `run-pipeline` queue) handles sequencing.
 **Goal:** Generate actionable mitigation options for top-ranked risk items.
 
 ### Worker tasks (`src/workers/mitigations.worker.ts`)
-- [ ] Create BullMQ `Worker` on queue `mitigations`
-- [ ] Gate check: `await assertRunActive(runId)`
-- [ ] `setStepRunning(runId, "mitigations")`
-- [ ] Fetch `RiskItem[]` for `runId` (ordered by `finalScore` DESC)
+- [x] Create BullMQ `Worker` on queue `mitigations`
+- [x] Gate check: `await assertRunActive(runId)`
+- [x] `setStepRunning(runId, "mitigations")`
+- [x] Fetch `RiskItem[]` for `runId` (ordered by `finalScore` DESC)
 - [ ] Optionally filter to top-N items (configured threshold) or process all
-- [ ] For each risk item:
-  - Identify control types applicable to `sourceType` (threat / cve / attack_path)
-  - Query control catalog / policy store (DB or embedded knowledge)
-  - Use LLM to generate context-specific mitigation suggestion:
-    - `controlType` — technical / process / policy
-    - `estimatedEffort` — low / medium / high
-    - `expectedRiskReduction` (0–1)
-    - `validationSteps[]` — ordered checklist strings
-  - Link `linkedRisks[]` to one or more `RiskItem` IDs (a single mitigation may cover multiple risks)
-- [ ] Bulk insert `Mitigation[]` to DB with `runId`
-- [ ] `setStepCompleted(runId, "mitigations")`
-- [ ] Call `completeRun(runId)` — sets `Run.status = "completed"`, `completedAt = now()`
-- [ ] On any error: `failRun(runId, "mitigations", err.message)` then rethrow
+- [ ] For each risk item:  ← **stub: no LLM or control catalog**
+  - [ ] Identify control types applicable to `sourceType` (threat / cve / attack_path)
+  - [ ] Query control catalog / policy store (DB or embedded knowledge)
+  - [ ] Use LLM to generate context-specific mitigation suggestion:
+    - [ ] `controlType` — technical / process / policy
+    - [ ] `estimatedEffort` — low / medium / high
+    - [ ] `expectedRiskReduction` (0–1)
+    - [ ] `validationSteps[]` — ordered checklist strings
+  - [ ] Link `linkedRisks[]` to one or more `RiskItem` IDs (a single mitigation may cover multiple risks)
+- [x] Bulk insert `Mitigation[]` to DB with `runId`  ← **stub: one placeholder per risk item**
+- [x] `setStepCompleted(runId, "mitigations")`
+- [x] Call `completeRun(runId)` — sets `Run.status = "completed"`, `completedAt = now()`
+- [x] On any error: `failRun(runId, "mitigations", err.message)` then rethrow
 
 ### DB writes this step
 | Table | Operation |
@@ -325,17 +337,17 @@ The orchestrator worker (on `run-pipeline` queue) handles sequencing.
 - [ ] `GET /runs/:runId/exports` — list all `Report[]` for run; frontend polls until `downloadUrl` present
 
 ### Worker tasks (`src/workers/exports.worker.ts`)
-- [ ] Create BullMQ `Worker` on queue `export-generation`
-- [ ] Update `Report.status = "running"`
-- [ ] Fetch all run artifacts: `CanonicalModel`, `Threat[]`, `CVEMatch[]`, `AttackPath[]`, `RiskItem[]`, `Mitigation[]`
-- [ ] Format-specific generation:
-  - **JSON**: serialize all artifacts into structured `RunExport` shape; write to file
-  - **MD**: render Markdown report with sections per artifact type; write to file
-  - **PDF**: render HTML template → headless Chromium / PDF lib → write to file
+- [x] Create BullMQ `Worker` on queue `export-generation`
+- [x] Update `Report.status = "running"`
+- [x] Fetch all run artifacts: `CanonicalModel`, `Threat[]`, `CVEMatch[]`, `AttackPath[]`, `RiskItem[]`, `Mitigation[]`
+- [ ] Format-specific generation:  ← **stub: JSON summary as base64 data URL, no real file**
+  - [ ] **JSON**: serialize all artifacts into structured `RunExport` shape; write to file
+  - [ ] **MD**: render Markdown report with sections per artifact type; write to file
+  - [ ] **PDF**: render HTML template → headless Chromium / PDF lib → write to file
 - [ ] Include evidence/provenance snapshot (model version, config snapshot, artifact IDs)
-- [ ] Upload generated file to S3 / MinIO
-- [ ] Update `Report` in DB: `status = "completed"`, `downloadUrl = <s3-url>`, `generatedAt = now()`
-- [ ] On error: update `Report.status = "failed"`, `errorMessage = err.message`
+- [ ] Upload generated file to S3 / MinIO  ← **stub: fake URL stored**
+- [x] Update `Report` in DB: `status = "completed"`, `downloadUrl`, `generatedAt = now()`
+- [x] On error: update `Report.status = "failed"`, `errorMessage = err.message`
 
 ### DB writes this step
 | Table | Operation |
@@ -344,15 +356,15 @@ The orchestrator worker (on `run-pipeline` queue) handles sequencing.
 
 ---
 
-## Fastify Route/Controller tasks
+## Fastify Route/Controller tasks ✅ All routes scaffolded (iteration 1)
 
 Steps 1–6 are fully internal — BullMQ handles sequencing after a single run creation call.
 Only the routes below are needed.
 
 For each route, the controller must:
-- [ ] Validate request with Zod schema (type provider)
-- [ ] Check authorization (`owner` or `analyst` for writes; all roles for reads)
-- [ ] Use `setErrorHandler` for unhandled failures — no raw error leakage
+- [x] Validate request with Zod schema (type provider)
+- [ ] Check authorization — **DEFERRED. No auth until full pipeline is working. See Iteration-1-Decisions.md #8**
+- [x] Use `setErrorHandler` for unhandled failures — no raw error leakage  ← **partial: error handler incomplete, see issue #13**
 
 ### Runs module (`src/modules/runs/`)
 | Method | Path | Purpose |
