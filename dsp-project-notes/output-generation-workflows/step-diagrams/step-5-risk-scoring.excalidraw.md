@@ -7,106 +7,131 @@ tags: [excalidraw]
 # Excalidraw Data
 
 ## Text Elements
-Step 5 — Risk Scoring & Ranking ^title
-
-Worker: risk.worker.ts  |  Queue: risk-scoring  |  Triggered by: orchestrator after Step 4 ^subtitle
-
-FROM DB
-Threat[]
-CVEMatch[]
-AttackPath[]
-
-Run.config_snapshot
-「scoring weights」 ^C3pRBklX
-
-Per source item:
-
-likelihood
-「threat confidence / CVE exploitability / path feasibility」
-
-impact
-「asset criticality tags」
-
-exploitability
-「CVSS / heuristic」
-
-exposureModifier
-「internet-facing interfaces」
-
-finalScore = weighted_sum「config」 ^e9BYnX5E
-
-RiskItem[]
-「ordered by finalScore DESC」
-
-sourceType 「threat|cve|attack_path」
-sourceId
-finalScore
-severity 「critical|high|medium|low」
-likelihood
-impact
-exploitability
-exposureModifier
-explainability 「JSON breakdown」
-
-→ DB: INSERT many ^pYasQwiz
-
-On error: failRun「runId, 『risk』, err.message」 → Run.status = FAILED → Step 6 never starts ^nEkf4M4Y
-
 %%
 ## Drawing
-```compressed-json
-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
-
-FzgDsL4iEjhCMJGQgBGRAA==
+```json
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://github.com/zsviczian/obsidian-excalidraw-plugin",
+  "elements": [
+    {
+      "id": "title", "type": "text",
+      "x": 50, "y": 14, "width": 860, "height": 28,
+      "angle": 0, "strokeColor": "#1e40af", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 5001, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Step 5 — Risk Scoring & Ranking",
+      "fontSize": 24, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Step 5 — Risk Scoring & Ranking",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "subtitle", "type": "text",
+      "x": 50, "y": 46, "width": 860, "height": 18,
+      "angle": 0, "strokeColor": "#374151", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 5002, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Worker: risk.worker.ts  |  Fixed 4-factor formula  |  1 RiskItem per threat, CVE, and attack path  |  No LLM",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Worker: risk.worker.ts  |  Fixed 4-factor formula  |  1 RiskItem per threat, CVE, and attack path  |  No LLM",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "box-input", "type": "rectangle",
+      "x": 30, "y": 80, "width": 170, "height": 110,
+      "angle": 0, "strokeColor": "#1e40af", "backgroundColor": "#a5d8ff",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 5003, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-input", "type": "text",
+      "x": 35, "y": 94, "width": 160, "height": 82,
+      "angle": 0, "strokeColor": "#1e40af", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 5004, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "FROM DB\nThreat[]\nCVEMatch[]\nAttackPath[]\nCanonicalModel",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "FROM DB\nThreat[]\nCVEMatch[]\nAttackPath[]\nCanonicalModel",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "arrow-in", "type": "arrow",
+      "x": 200, "y": 135, "width": 50, "height": 0,
+      "angle": 0, "strokeColor": "#3b82f6", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 2 }, "seed": 5005, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false,
+      "points": [[0, 0], [50, 0]], "lastCommittedPoint": null,
+      "startBinding": null, "endBinding": null, "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "id": "box-formula", "type": "rectangle",
+      "x": 250, "y": 80, "width": 280, "height": 270,
+      "angle": 0, "strokeColor": "#374151", "backgroundColor": "#eebefa",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 5006, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-formula", "type": "text",
+      "x": 255, "y": 88, "width": 270, "height": 254,
+      "angle": 0, "strokeColor": "#374151", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 5007, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Fixed formula 「hardcoded weights」\n\nfinalScore =\n  0.30 x likelihood\n+ 0.30 x impact\n+ 0.25 x exploitability\n+ 0.15 x exposureModifier\n\nFactor sources vary by sourceType:\n\nthreat → confidence, asset crit, 0.5, exposure\ncve → 0.8, asset crit, cvss/10, exposure\nattack_path → feasibility, target crit,\n  max cvss at hops, boundary penalty\n\nSeverity buckets:\ncritical 「0.8-1.0」  high 「0.6-0.79」\nmedium 「0.4-0.59」  low 「0.0-0.39」",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Fixed formula 「hardcoded weights」\n\nfinalScore =\n  0.30 x likelihood\n+ 0.30 x impact\n+ 0.25 x exploitability\n+ 0.15 x exposureModifier\n\nFactor sources vary by sourceType:\n\nthreat → confidence, asset crit, 0.5, exposure\ncve → 0.8, asset crit, cvss/10, exposure\nattack_path → feasibility, target crit,\n  max cvss at hops, boundary penalty\n\nSeverity buckets:\ncritical 「0.8-1.0」  high 「0.6-0.79」\nmedium 「0.4-0.59」  low 「0.0-0.39」",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "arrow-out", "type": "arrow",
+      "x": 530, "y": 215, "width": 60, "height": 0,
+      "angle": 0, "strokeColor": "#0ca678", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 2 }, "seed": 5008, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false,
+      "points": [[0, 0], [60, 0]], "lastCommittedPoint": null,
+      "startBinding": null, "endBinding": null, "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "id": "box-output", "type": "rectangle",
+      "x": 590, "y": 80, "width": 280, "height": 270,
+      "angle": 0, "strokeColor": "#0ca678", "backgroundColor": "#b2f2bb",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 5009, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-output", "type": "text",
+      "x": 595, "y": 88, "width": 270, "height": 254,
+      "angle": 0, "strokeColor": "#15803d", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 5010, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "RiskItem[]\n「flat list — Option A」\n「1 per threat + 1 per CVE + 1 per path」\n「ranked by finalScore DESC」\n\nsourceType 「threat | cve | attack_path」\nsourceId\nfinalScore\nseverity 「critical|high|medium|low」\n\nbreakdown 「JSON」:\n  likelihood: value, weight, contribution\n  impact: value, weight, contribution\n  exploitability: value, weight, contribution\n  exposureModifier: value, weight, contribution\n  each with source label\n\n→ DB: INSERT many\n→ formula displayed on frontend",
+      "fontSize": 13, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "RiskItem[]\n「flat list — Option A」\n「1 per threat + 1 per CVE + 1 per path」\n「ranked by finalScore DESC」\n\nsourceType 「threat | cve | attack_path」\nsourceId\nfinalScore\nseverity 「critical|high|medium|low」\n\nbreakdown 「JSON」:\n  likelihood: value, weight, contribution\n  impact: value, weight, contribution\n  exploitability: value, weight, contribution\n  exposureModifier: value, weight, contribution\n  each with source label\n\n→ DB: INSERT many\n→ formula displayed on frontend",
+      "autoResize": true, "lineHeight": 1.25
+    }
+  ],
+  "appState": { "gridSize": null, "viewBackgroundColor": "#ffffff" },
+  "files": {}
+}
 ```
 %%

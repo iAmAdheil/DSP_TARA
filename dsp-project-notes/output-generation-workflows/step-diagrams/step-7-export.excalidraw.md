@@ -7,102 +7,65 @@ tags: [excalidraw]
 # Excalidraw Data
 
 ## Text Elements
-Step 7 — Export / Report  「manual trigger only — D5」 ^title
-
-Worker: exports.worker.ts  |  Queue: export-generation  |  Triggered by: POST /runs/:id/exports ^subtitle
-
-User clicks Export
-POST /runs/:id/exports ^rTDftr4O
-
-FROM DB
-CanonicalModel
-Threat[]
-CVEMatch[]
-AttackPath[]
-RiskItem[]
-Mitigation[]
-Run.config_snapshot ^mYYIBN5g
-
-Format-specific generation
-
-JSON: RunExport serialization
-
-MD: template render
-per artifact type
-
-PDF: HTML template
-→ headless Chromium ^XaTIQGzQ
-
-Upload to S3 / MinIO ^text-s3
-
-Report 「DB update」
-status = completed
-downloadUrl = S3 URL
-generatedAt = now「」 ^yCeOvRFQ
-
-Frontend polls GET /runs/:id/exports every ~3s until downloadUrl present ^NuWy5kaj
-
 %%
 ## Drawing
-```compressed-json
-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
+```json
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://github.com/zsviczian/obsidian-excalidraw-plugin",
+  "elements": [
+    {
+      "id": "title", "type": "text",
+      "x": 50, "y": 14, "width": 860, "height": 28,
+      "angle": 0, "strokeColor": "#1e40af", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 7001, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Step 7 — Export / Report  「DEFERRED」",
+      "fontSize": 24, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Step 7 — Export / Report  「DEFERRED」",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "subtitle", "type": "text",
+      "x": 50, "y": 46, "width": 860, "height": 18,
+      "angle": 0, "strokeColor": "#374151", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 7002, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Existing stub retained. Real implementation deferred until pipeline steps 1-6 are functional end-to-end.",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Existing stub retained. Real implementation deferred until pipeline steps 1-6 are functional end-to-end.",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "box-deferred", "type": "rectangle",
+      "x": 200, "y": 90, "width": 560, "height": 200,
+      "angle": 0, "strokeColor": "#868e96", "backgroundColor": "#f8f9fa",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "dashed",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 7003, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-deferred", "type": "text",
+      "x": 220, "y": 110, "width": 520, "height": 160,
+      "angle": 0, "strokeColor": "#868e96", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 7004, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "DEFERRED — see DEFERRED-TODOS.md\n\nCurrent stub: generates JSON summary as base64 data URL\n\nPlanned 「not yet built」:\n  JSON: full RunExport serialization\n  Markdown: template-based report rendering\n  PDF: HTML template → headless Chromium\n  Upload to S3 / MinIO\n  Real downloadUrl on Report record\n\nTriggered by: POST /runs/:id/exports 「manual, D5」\nPolled by: GET /runs/:id/exports",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "DEFERRED — see DEFERRED-TODOS.md\n\nCurrent stub: generates JSON summary as base64 data URL\n\nPlanned 「not yet built」:\n  JSON: full RunExport serialization\n  Markdown: template-based report rendering\n  PDF: HTML template → headless Chromium\n  Upload to S3 / MinIO\n  Real downloadUrl on Report record\n\nTriggered by: POST /runs/:id/exports 「manual, D5」\nPolled by: GET /runs/:id/exports",
+      "autoResize": true, "lineHeight": 1.25
+    }
+  ],
+  "appState": { "gridSize": null, "viewBackgroundColor": "#ffffff" },
+  "files": {}
+}
 ```
 %%

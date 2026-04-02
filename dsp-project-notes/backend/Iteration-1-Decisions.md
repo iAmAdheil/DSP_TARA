@@ -309,22 +309,92 @@ These are known stubs from iteration 1. Decisions on implementation approach to 
 
 ### Issue #5 — Risk Scoring (Step 5) Real Implementation
 
-**Decision:** _TBD_
+**Decision:** Option A — every threat, CVE, and attack path becomes its own RiskItem, scored independently and ranked together. Fixed 4-factor weighted formula (no user-configurable weights for now). Each RiskItem includes its `sourceType` so the UI can distinguish attack paths from threats from CVEs.
 
 **Instructions for backend agent:**
+
+**RiskItem creation:**
+- Create one RiskItem per `Threat`, one per `CVEMatch`, one per `AttackPath`.
+- Each RiskItem stores: `sourceType` (`"threat"` | `"cve"` | `"attack_path"`), `sourceId` (FK to the source record).
+
+**Scoring formula (fixed weights):**
+```
+finalScore = 0.3 × likelihood + 0.3 × impact + 0.25 × exploitability + 0.15 × exposureModifier
+```
+
+**Factor computation per sourceType:**
+
+For `threat`:
+- `likelihood` = `threat.confidence` (already 0–1 from step 2 LLM)
+- `impact` = criticality lookup on `threat.impactedAssets[]` (safety-critical=0.9, normal=0.5, low=0.2; take max across impacted assets)
+- `exploitability` = 0.5 (default heuristic — no CVSS available for threats)
+- `exposureModifier` = 1.0 if any entry point is internet-facing, subtract 0.2 per trust boundary between entry and impacted asset
+
+For `cve`:
+- `likelihood` = 0.8 (known vulnerability exists — high baseline)
+- `impact` = criticality lookup on `cveMatch.matchedSoftwareInstance` → parent asset criticality
+- `exploitability` = `cveMatch.cvssScore / 10` (normalize NVD CVSS to 0–1)
+- `exposureModifier` = 1.0 if asset is internet-facing, 0.6 if behind trust boundary
+
+For `attack_path`:
+- `likelihood` = `attackPath.feasibilityScore` (from step 4 LLM evaluation)
+- `impact` = criticality lookup on target asset of the path
+- `exploitability` = max CVSS score across all CVEs at hops along the path, divided by 10
+- `exposureModifier` = 1.0 minus 0.1 per trust boundary crossed along the path (min 0.2)
+
+**Severity buckets:**
+- 0.8–1.0 → `critical`
+- 0.6–0.79 → `high`
+- 0.4–0.59 → `medium`
+- 0.0–0.39 → `low`
+
+**Explainability:**
+- Store per-factor breakdown as JSON on each RiskItem: value, weight, contribution, and a short source label for each factor.
+
+**No config-driven weights.** The formula above is hardcoded. Weights and bucket thresholds are constants in the scoring module. The frontend will display the formula for transparency (see `frontend/FRONTEND-TODOS.md`).
 
 ---
 
 ### Issue #6 — Mitigation Recommendation (Step 6) Real Implementation
 
-**Decision:** _TBD_
+**Decision:** Pure LLM (Gemini) for mitigation generation — no control catalog or policy store. Generate one mitigation per RiskItem. If the LLM produces the same mitigation for multiple risks, store it as-is (duplicate content is acceptable — deduplication is a UI concern, not a DB concern).
 
 **Instructions for backend agent:**
+
+**Mitigation generation (`src/workers/mitigations.worker.ts`):**
+- Fetch all `RiskItem[]` for the run, ordered by `finalScore` DESC.
+- For each RiskItem, send a Gemini call with:
+  - System prompt: TARA mitigation recommendation instructions, expected output schema.
+  - User message: the RiskItem details (sourceType, score, breakdown, severity), the underlying source data (threat/CVE/attack path details), and relevant canonical model context (affected assets, interfaces).
+- Gemini returns per RiskItem:
+  ```ts
+  {
+    title: string,
+    description: string,
+    controlType: "technical" | "process" | "policy",
+    estimatedEffort: "low" | "medium" | "high",
+    expectedRiskReduction: number,  // 0-1
+    validationSteps: string[],      // ordered checklist
+  }
+  ```
+- Store each `Mitigation` linked to its `RiskItem` via `linkedRisks[]` (1:1 for now, but the field is an array to support future multi-risk coverage).
+
+**Batching:**
+- Batch RiskItems in groups of 3 (same pattern as threat generation) to reduce LLM calls.
+- Each batch prompt contains 3 RiskItems and returns 3 mitigations.
+
+**Duplicate handling:**
+- If the LLM returns identical mitigations for different RiskItems, store them as separate Mitigation records with the same content. Each links to its own RiskItem.
+- No deduplication logic in the backend. The frontend may choose to group/collapse identical mitigations in the UI.
+
+**No control catalog.** The LLM generates mitigations from its training data without referencing a structured control database. See `ASSUMPTIONS.md` for this assumption.
+
+**After all mitigations are stored:** call `completeRun(runId)` to set `Run.status = COMPLETED`.
 
 ---
 
 ### Issue #7 — Export Worker (Step 7) Real Implementation
 
-**Decision:** _TBD_
+**Decision:** **Deferred entirely.** Keep the existing stub. Real file generation (JSON/MD/PDF) and storage (S3/MinIO) will be implemented after the core pipeline (steps 1–6) is functional end-to-end.
 
-**Instructions for backend agent:**
+**Instructions for backend agent:** No action on this for iteration 2. Do not modify the export worker or routes.

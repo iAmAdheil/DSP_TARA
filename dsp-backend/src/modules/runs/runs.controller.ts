@@ -18,6 +18,7 @@ export class RunsController {
     const run = await service.createRun(
       params.data.projectId,
       body.data.initiatedBy,
+      body.data.artifacts,
       body.data.configSnapshot,
     );
     return reply.status(202).send(ok(run));

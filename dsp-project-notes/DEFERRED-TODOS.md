@@ -44,6 +44,53 @@
 
 ---
 
+## Export Worker — Real File Generation + Storage
+
+**What:** Replace the export worker stub with real file generation (JSON, Markdown, PDF) and upload to S3/MinIO. Currently generates a JSON summary as a base64 data URL — no real files, no real storage.
+
+**What needs building:**
+- JSON: full structured `RunExport` serialization to file
+- Markdown: template-based report rendering with sections per artifact type
+- PDF: HTML template → headless Chromium (Puppeteer/Playwright) → PDF file
+- S3/MinIO upload, store `downloadUrl` on the `Report` record
+- `GET /runs/:runId/exports` returns real download URLs
+
+**Why deferred:** Core pipeline (steps 1–6) must be functional end-to-end first. Export is manually triggered after the pipeline completes (D5) — it's not blocking any pipeline work.
+
+---
+
+## Pagination on Run List Endpoints
+
+**What:** `limit`/`cursor` pagination on `/runs/:runId/threats`, `/runs/:runId/cves`, `/runs/:runId/risks`, `/runs/:runId/mitigations`.
+
+**Why deferred:** The CVE explosion fix (C2, iteration 3) brings response sizes down to manageable numbers. Revisit if response sizes become a problem again after the fix lands or when the frontend starts consuming these endpoints.
+
+---
+
+## HEAVENS Automotive Keyword Gate
+
+**What:** Before making the HEAVENS secondary Gemini call, check if the system context or run artifact text contains automotive-domain keywords (vehicle, ECU, CAN bus, AUTOSAR, ISO 26262, etc.). Skip the call entirely for non-automotive systems.
+
+**Why deferred:** The extra Gemini call cost is acceptable for now. Add this optimisation once we have a clearer picture of call costs across real runs.
+
+---
+
+## Attack Path BFS Candidate Pruning
+
+**What:** After BFS produces candidate paths per threat, prune to top-N before sending to Gemini for plausibility evaluation. Rank by CVE density (CVEs along path / hop count). Cap at ~30 candidates per threat.
+
+**Why deferred:** Not observed as a problem yet — test system had 7 assets. Revisit when we test with larger, denser asset graphs.
+
+---
+
+## Fuzzy Asset Name Matching
+
+**What:** 3-step resolver for LLM-returned asset names: exact match → case-insensitive → substring. Fallback for when the LLM ignores the exact name instruction from C3.
+
+**Why deferred:** C3 fixes the root cause by instructing the LLM to use exact DB asset names verbatim. Add fuzzy matching only if QA shows the LLM is still drifting on names after the prompt fix.
+
+---
+
 ## Error Handler Shape Consistency
 
 **What:** The `setErrorHandler` in `create-app.ts` returns a non-standard shape in the `else` branch (`{ message, error, statusCode }` vs the `{ error }` shape used elsewhere). No security issue — just cosmetic inconsistency.

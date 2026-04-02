@@ -7,89 +7,153 @@ tags: [excalidraw]
 # Excalidraw Data
 
 ## Text Elements
-Step 6 — Mitigation Recommendation ^title
-
-Worker: mitigations.worker.ts  |  Queue: mitigations  |  Last step — calls completeRun on success ^subtitle
-
-RiskItem[]
-「top-N ordered by finalScore DESC」 ^tD5Sw9cD
-
-Control catalog lookup
-「by sourceType」 ^Qe2YiwUE
-
-LLM context-specific suggestion ^text-llm
-
-Mitigation[]
-
-controlType 「technical|process|policy」
-estimatedEffort 「low|medium|high」
-expectedRiskReduction 「0-1」
-validationSteps[]
-linkedRisks[] 「1 mitigation → N risks」
-
-→ DB: INSERT many
-→ completeRun「runId」
-   Run.status = COMPLETED ^NjuOWkvY
-
-On error: failRun「runId, 『mitigations』, err.message」 — completeRun is NOT called — Run stays FAILED ^R52spixC
-
 %%
 ## Drawing
-```compressed-json
-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
+```json
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://github.com/zsviczian/obsidian-excalidraw-plugin",
+  "elements": [
+    {
+      "id": "title", "type": "text",
+      "x": 50, "y": 14, "width": 860, "height": 28,
+      "angle": 0, "strokeColor": "#1e40af", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 6001, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Step 6 — Mitigation Recommendation",
+      "fontSize": 24, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Step 6 — Mitigation Recommendation",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "subtitle", "type": "text",
+      "x": 50, "y": 46, "width": 860, "height": 18,
+      "angle": 0, "strokeColor": "#374151", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 6002, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Worker: mitigations.worker.ts  |  Pure Gemini LLM  |  Batch 3 RiskItems per call  |  Last step → completeRun",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Worker: mitigations.worker.ts  |  Pure Gemini LLM  |  Batch 3 RiskItems per call  |  Last step → completeRun",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "box-input", "type": "rectangle",
+      "x": 30, "y": 80, "width": 180, "height": 75,
+      "angle": 0, "strokeColor": "#1e40af", "backgroundColor": "#a5d8ff",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 6003, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-input", "type": "text",
+      "x": 35, "y": 96, "width": 170, "height": 44,
+      "angle": 0, "strokeColor": "#1e40af", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 6004, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "ALL RiskItem[]\n「ordered by finalScore DESC」",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "ALL RiskItem[]\n「ordered by finalScore DESC」",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "arrow-in", "type": "arrow",
+      "x": 210, "y": 117, "width": 60, "height": 0,
+      "angle": 0, "strokeColor": "#3b82f6", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 2 }, "seed": 6005, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false,
+      "points": [[0, 0], [60, 0]], "lastCommittedPoint": null,
+      "startBinding": null, "endBinding": null, "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "id": "box-llm", "type": "rectangle",
+      "x": 270, "y": 80, "width": 250, "height": 195,
+      "angle": 0, "strokeColor": "#c2410c", "backgroundColor": "#ffd8a8",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 6006, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-llm", "type": "text",
+      "x": 275, "y": 88, "width": 240, "height": 180,
+      "angle": 0, "strokeColor": "#c2410c", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 6007, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Gemini  「pure LLM — no catalog」\n\nPer batch of 3 RiskItems:\n- RiskItem details + breakdown\n- source data 「threat/CVE/path」\n- canonical model context\n\nReturns per RiskItem:\n- title + description\n- controlType\n- estimatedEffort\n- expectedRiskReduction 「0-1」\n- validationSteps[]",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Gemini  「pure LLM — no catalog」\n\nPer batch of 3 RiskItems:\n- RiskItem details + breakdown\n- source data 「threat/CVE/path」\n- canonical model context\n\nReturns per RiskItem:\n- title + description\n- controlType\n- estimatedEffort\n- expectedRiskReduction 「0-1」\n- validationSteps[]",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "arrow-out", "type": "arrow",
+      "x": 520, "y": 177, "width": 60, "height": 0,
+      "angle": 0, "strokeColor": "#0ca678", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 2 }, "seed": 6008, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false,
+      "points": [[0, 0], [60, 0]], "lastCommittedPoint": null,
+      "startBinding": null, "endBinding": null, "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "id": "box-output", "type": "rectangle",
+      "x": 580, "y": 80, "width": 290, "height": 195,
+      "angle": 0, "strokeColor": "#0ca678", "backgroundColor": "#b2f2bb",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 6009, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-output", "type": "text",
+      "x": 585, "y": 88, "width": 280, "height": 180,
+      "angle": 0, "strokeColor": "#15803d", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 6010, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Mitigation[]\n「1 per RiskItem — no dedup」\n\ntitle\ndescription\ncontrolType 「technical|process|policy」\nestimatedEffort 「low|medium|high」\nexpectedRiskReduction 「0-1」\nvalidationSteps[]\nlinkedRisks[] 「1:1 for now」\n\n→ DB: INSERT many\n→ completeRun「runId」\n   Run.status = COMPLETED",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Mitigation[]\n「1 per RiskItem — no dedup」\n\ntitle\ndescription\ncontrolType 「technical|process|policy」\nestimatedEffort 「low|medium|high」\nexpectedRiskReduction 「0-1」\nvalidationSteps[]\nlinkedRisks[] 「1:1 for now」\n\n→ DB: INSERT many\n→ completeRun「runId」\n   Run.status = COMPLETED",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "box-note", "type": "rectangle",
+      "x": 30, "y": 295, "width": 840, "height": 40,
+      "angle": 0, "strokeColor": "#374151", "backgroundColor": "#fff3bf",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "dashed",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 6011, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-note", "type": "text",
+      "x": 40, "y": 307, "width": 820, "height": 18,
+      "angle": 0, "strokeColor": "#374151", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 6012, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Duplicate mitigations stored as-is — dedup is a UI concern, not backend 「see ASSUMPTIONS.md #A10」",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Duplicate mitigations stored as-is — dedup is a UI concern, not backend 「see ASSUMPTIONS.md #A10」",
+      "autoResize": true, "lineHeight": 1.25
+    }
+  ],
+  "appState": { "gridSize": null, "viewBackgroundColor": "#ffffff" },
+  "files": {}
+}
 ```
 %%

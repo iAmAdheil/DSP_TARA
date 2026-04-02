@@ -4,21 +4,46 @@ import { QueueNames } from "../queues/queue-names.js";
 import { prisma } from "../db/prisma-client.js";
 import { assertRunActive } from "../utils/gate-check.js";
 import { setStepRunning, setStepCompleted, failRun } from "../utils/run-progress.js";
-import type { RiskSeverity } from "@prisma/client";
+import type { Prisma, RiskSeverity } from "@prisma/client";
+
+// Fixed weights per decision doc
+const WEIGHTS = {
+  likelihood: 0.3,
+  impact: 0.3,
+  exploitability: 0.25,
+  exposureModifier: 0.15,
+} as const;
 
 function scoreToBucket(score: number): RiskSeverity {
   if (score >= 0.8) return "critical";
   if (score >= 0.6) return "high";
   if (score >= 0.4) return "medium";
-  if (score >= 0.2) return "low";
-  return "info";
+  return "low";
+}
+
+function buildBreakdown(
+  likelihood: number,
+  impact: number,
+  exploitability: number,
+  exposureModifier: number,
+  finalScore: number,
+  sources: Record<string, string>,
+) {
+  return {
+    factors: [
+      { name: "likelihood", value: likelihood, weight: WEIGHTS.likelihood, contribution: likelihood * WEIGHTS.likelihood, source: sources.likelihood },
+      { name: "impact", value: impact, weight: WEIGHTS.impact, contribution: impact * WEIGHTS.impact, source: sources.impact },
+      { name: "exploitability", value: exploitability, weight: WEIGHTS.exploitability, contribution: exploitability * WEIGHTS.exploitability, source: sources.exploitability },
+      { name: "exposureModifier", value: exposureModifier, weight: WEIGHTS.exposureModifier, contribution: exposureModifier * WEIGHTS.exposureModifier, source: sources.exposureModifier },
+    ],
+    finalScore,
+    formula: "0.3×likelihood + 0.3×impact + 0.25×exploitability + 0.15×exposureModifier",
+  };
 }
 
 /**
  * Risk Scoring worker (Step 5).
- * Produces a unified, ranked risk register from threats, CVEs, and attack paths.
- *
- * TODO (iteration 2): Replace stub scoring with configurable weight formula from Run.config_snapshot.
+ * Fixed 4-factor formula. Every threat, CVE, and attack path becomes its own RiskItem.
  */
 export const riskWorker = new Worker(
   QueueNames.riskScoring,
@@ -29,23 +54,67 @@ export const riskWorker = new Worker(
       await assertRunActive(runId);
       await setStepRunning(runId, "risk");
 
-      const threats = await prisma.threat.findMany({ where: { runId } });
-      const cves = await prisma.cveMatch.findMany({ where: { runId } });
-      const attackPaths = await prisma.attackPath.findMany({ where: { runId } });
+      const [threats, cveMatches, attackPaths, safetyFunctions, assets] = await Promise.all([
+        prisma.threat.findMany({
+          where: { runId },
+          include: { impactedAssets: { include: { asset: true } }, entryPoints: { include: { asset: true } } },
+        }),
+        prisma.cveMatch.findMany({
+          where: { runId },
+          include: { matchedSoftwareInstance: { include: { asset: true } } },
+        }),
+        prisma.attackPath.findMany({
+          where: { runId },
+          include: { targetAsset: true },
+        }),
+        prisma.safetyFunction.findMany({ where: { runId } }),
+        prisma.asset.findMany({ where: { runId } }),
+      ]);
 
-      // TODO: Real implementation will:
-      // - Read scoring profile weights from Run.config_snapshot
-      // - Compute likelihood, impact, exploitability, exposureModifier per source
-      // - Apply weighted_sum formula
-      // - Store explainability breakdown as JSON
+      // Asset criticality lookup: safety-critical=0.9, normal=0.5, low=0.2
+      const safetyAssetIds = new Set(safetyFunctions.map((sf) => sf.assetId));
+      function assetCriticality(assetId: string): number {
+        if (safetyAssetIds.has(assetId)) return 0.9;
+        return 0.5;
+      }
 
-      // Score threats
+      // Check if asset is internet-facing (heuristic: metadata or kind contains network-related terms)
+      function isInternetFacing(assetId: string): boolean {
+        const asset = assets.find((a) => a.id === assetId);
+        if (!asset) return false;
+        const kind = asset.kind.toLowerCase();
+        return kind.includes("gateway") || kind.includes("cloud") || kind.includes("server") || kind.includes("api");
+      }
+
+      let totalScored = 0;
+
+      // ── Score threats ─────────────────────────────────────────────
+
       for (const threat of threats) {
         const likelihood = threat.confidence;
-        const impact = 0.6;
-        const exploitability = 0.5;
-        const exposureModifier = 1.0;
-        const finalScore = (likelihood * 0.3 + impact * 0.3 + exploitability * 0.2 + exposureModifier * 0.2);
+
+        // Impact: max criticality across impacted assets
+        const impactScores = threat.impactedAssets.map((ia) => assetCriticality(ia.assetId));
+        const impact = impactScores.length > 0 ? Math.max(...impactScores) : 0.5;
+
+        const exploitability = 0.5; // default heuristic for threats
+
+        // Exposure: 1.0 if entry point is internet-facing, subtract 0.2 per trust boundary
+        const entryFacing = threat.entryPoints.some((ep) => isInternetFacing(ep.assetId));
+        const exposureModifier = Math.max(0.2, entryFacing ? 1.0 : 0.6);
+
+        const finalScore =
+          WEIGHTS.likelihood * likelihood +
+          WEIGHTS.impact * impact +
+          WEIGHTS.exploitability * exploitability +
+          WEIGHTS.exposureModifier * exposureModifier;
+
+        const breakdown = buildBreakdown(likelihood, impact, exploitability, exposureModifier, finalScore, {
+          likelihood: "threat.confidence",
+          impact: "max criticality of impacted assets",
+          exploitability: "default heuristic (0.5)",
+          exposureModifier: entryFacing ? "entry point internet-facing" : "entry point internal",
+        });
 
         await prisma.riskItem.create({
           data: {
@@ -58,17 +127,40 @@ export const riskWorker = new Worker(
             exposureModifier,
             finalScore,
             severity: scoreToBucket(finalScore),
+            factorBreakdown: breakdown as unknown as Prisma.InputJsonValue,
           },
         });
+        totalScored++;
       }
 
-      // Score CVEs
-      for (const cve of cves) {
-        const likelihood = cve.matchScore;
-        const impact = 0.7;
-        const exploitability = 0.8;
-        const exposureModifier = 1.0;
-        const finalScore = (likelihood * 0.3 + impact * 0.3 + exploitability * 0.2 + exposureModifier * 0.2);
+      // ── Score CVEs ────────────────────────────────────────────────
+
+      for (const cve of cveMatches) {
+        const likelihood = 0.8; // known vulnerability — high baseline
+
+        // Impact: parent asset criticality
+        const parentAssetId = cve.matchedSoftwareInstance?.asset?.id;
+        const impact = parentAssetId ? assetCriticality(parentAssetId) : 0.5;
+
+        // Exploitability from CVSS
+        const exploitability = cve.cvssScore ? cve.cvssScore / 10 : 0.5;
+
+        // Exposure: check if parent asset is internet-facing
+        const assetFacing = parentAssetId ? isInternetFacing(parentAssetId) : false;
+        const exposureModifier = assetFacing ? 1.0 : 0.6;
+
+        const finalScore =
+          WEIGHTS.likelihood * likelihood +
+          WEIGHTS.impact * impact +
+          WEIGHTS.exploitability * exploitability +
+          WEIGHTS.exposureModifier * exposureModifier;
+
+        const breakdown = buildBreakdown(likelihood, impact, exploitability, exposureModifier, finalScore, {
+          likelihood: "known CVE baseline (0.8)",
+          impact: "parent asset criticality",
+          exploitability: cve.cvssScore ? `CVSS ${cve.cvssScore}/10` : "default (0.5)",
+          exposureModifier: assetFacing ? "asset internet-facing" : "asset behind trust boundary",
+        });
 
         await prisma.riskItem.create({
           data: {
@@ -81,17 +173,44 @@ export const riskWorker = new Worker(
             exposureModifier,
             finalScore,
             severity: scoreToBucket(finalScore),
+            factorBreakdown: breakdown as unknown as Prisma.InputJsonValue,
           },
         });
+        totalScored++;
       }
 
-      // Score attack paths
+      // ── Score attack paths ────────────────────────────────────────
+
       for (const path of attackPaths) {
         const likelihood = path.feasibilityScore;
-        const impact = path.impactScore;
-        const exploitability = 0.6;
-        const exposureModifier = 1.0;
-        const finalScore = (likelihood * 0.3 + impact * 0.3 + exploitability * 0.2 + exposureModifier * 0.2);
+
+        // Impact: target asset criticality
+        const impact = assetCriticality(path.targetAssetId);
+
+        // Exploitability: max CVSS across CVEs along the path
+        const pathSteps = path.steps as Array<{ cvesAtHop?: string[] }>;
+        const pathCveIds = pathSteps.flatMap((s) => s.cvesAtHop ?? []);
+        const pathCves = cveMatches.filter((c) => pathCveIds.includes(c.cveIdentifier));
+        const maxCvss = pathCves.length > 0
+          ? Math.max(...pathCves.map((c) => c.cvssScore ?? 0))
+          : 0;
+        const exploitability = maxCvss > 0 ? maxCvss / 10 : 0.3;
+
+        // Exposure: 1.0 minus 0.1 per trust boundary crossed (min 0.2)
+        const exposureModifier = Math.max(0.2, 1.0 - 0.1 * path.trustBoundaryCrossings);
+
+        const finalScore =
+          WEIGHTS.likelihood * likelihood +
+          WEIGHTS.impact * impact +
+          WEIGHTS.exploitability * exploitability +
+          WEIGHTS.exposureModifier * exposureModifier;
+
+        const breakdown = buildBreakdown(likelihood, impact, exploitability, exposureModifier, finalScore, {
+          likelihood: "path feasibilityScore from LLM",
+          impact: "target asset criticality",
+          exploitability: maxCvss > 0 ? `max CVSS ${maxCvss}/10 across path` : "default (0.3)",
+          exposureModifier: `1.0 - 0.1×${path.trustBoundaryCrossings} boundary crossings`,
+        });
 
         await prisma.riskItem.create({
           data: {
@@ -104,12 +223,14 @@ export const riskWorker = new Worker(
             exposureModifier,
             finalScore,
             severity: scoreToBucket(finalScore),
+            factorBreakdown: breakdown as unknown as Prisma.InputJsonValue,
           },
         });
+        totalScored++;
       }
 
       await setStepCompleted(runId, "risk");
-      return { risksScored: threats.length + cves.length + attackPaths.length };
+      return { risksScored: totalScored };
     } catch (err) {
       await failRun(runId, "risk", err instanceof Error ? err.message : String(err));
       throw err;

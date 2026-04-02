@@ -1,0 +1,19 @@
+extends:
+  - recommended
+
+rules:
+  # No authentication implemented yet
+  security-defined: off
+
+  # Localhost is valid for a dev server entry
+  no-server-example.com: off
+  no-server-trailing-slash: warn
+
+  # License is optional for internal APIs
+  info-license: off
+
+  # Health endpoint intentionally has no 4XX responses
+  operation-4xx-response: warn
+
+  # InternalError is kept for documentation purposes
+  no-unused-components: warn

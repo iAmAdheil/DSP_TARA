@@ -7,103 +7,223 @@ tags: [excalidraw]
 # Excalidraw Data
 
 ## Text Elements
-Step 4 — Attack Path Construction ^title
-
-Worker: attack-paths.worker.ts  |  Queue: attack-paths  |  Waits for Steps 2 + 3 to complete ^subtitle
-
-FROM DB
-CanonicalModel
-Asset[]
-Interface[]
-TrustBoundary[]
-Threat[]
-CVEMatch[] ^YENHyyE6
-
-Build adjacency graph
-asset → interface → asset ^ce3uMphQ
-
-BFS/DFS per threat
-entry point → target asset
-
-Costs:
-· trust boundary crossings
-· CVE exploitability at hop
-· data flow direction
-· max-hop pruning ^xrX41Ci7
-
-AttackPath[]
-「ranked by overallPathRisk DESC」
-
-feasibilityScore 「0-1」
-impactScore 「0-1」
-overallPathRisk = feasibility × impact
-hopCount
-trustBoundaryCrossings
-evidenceRefs[] 「threat + CVE IDs」
-
-→ DB: INSERT many ^x4iKSiPp
-
-On error: failRun「runId, 『attack_paths』, err.message」 → Run.status = FAILED → steps 5 + 6 never start ^Rfoz3VFQ
-
 %%
 ## Drawing
-```compressed-json
-N4KAkARALgngDgUwgLgAQQQDwMYEMA2AlgCYBOuA7hADTgQBuCpAzoQPYB2KqATLZMzYBXUtiRoIACyhQ4zZAHoFAc0JRJQgEYA6bGwC2CgF7N6hbEcK4OCtptbErHALRY8RMpWdx8Q1TdIEfARcZgRmBShcZQUebR4ARniaOiCEfQQOKGZuAG1wMFAwYogSbmg1YJTiyFhEcqgsKGqSzG4AVgAGfhKYbgSAFh7IChJ1bgGeADZtQYBmKYB2JfbF
-
-gA4EnnbhqQRCZWluOe6CyGtlKrQTmohmKFI2AGsEAGE2fDZScoBiBIQBzq4ABmLUgmlw2EeygeQg4xDeHy+Enu1mYcFwgSyoIgQMI+HwAGVYJd0IIPNi7g9ngB1MaSbh8U63e5PBBEmAk27vMo7GEHDjhHJoBI7Njo7BqPrCzrXErQ4RwACSxCFqFyAF1ecI4QLmKqOEJ8TswghiBMZSKmYwWOwuGhGTdCMwACJpRpmtBAghhHaabXEACiwQyWVV
-
-Gp2QjgxFw7v6i0WXSWk3aa0Wcx2RA4j24BqNTI+kNN3C9+B9TMamGaEiJCDgqAGqEAKASoACCMghj1QAAUY5JUG8OJShNgoLbsUDOFACYQjOJeEMmROsgAxXD6PFS1DbctNFtEZR29BiLJMbHW0fuPf7Q8QdfEYhVHZ6LK4QgC0jKnOG/Ci0j7N8EAAKk05Q1nWDbNm2USQt2vb9pwQ4jmOOy4EIUBsAASuEM5zvcQgIBmb4IAAEnsBxVqgSRbDs
-
-1qsJwABynBiNwACccwsYsPALHM6ZMm+xBYOUuCdOO5AZJ+aC5j+TKSKEwGVgAMm+2aet6BFMuQFDyRREAQAUAC+PRFCUZQSMwWijlAj7lvAc7QCBOxtGgXQ7JuAxTDsozEOMaBTAMczaO0UztAkaztO07mptuNySGRhzCosgUoRwFxzrKAgss8CKfD8cyLAMCQhdi4KQvKsLwu8OXIuQg7opizQ7Li+LspyZI8kylKsrS3n0sKxqZWyxJ2W1Zpan
-
-4ki6qqlo3GKEKSv0Mo7GVSoqnkmoaf6k1fnmNwmh69Yyg6JS0WO9o7E6rrBLGqmlupNx+uVQbpJk2RrRGUYxkWCUJp0SZbKmvE3JmKmoFJGZsIW+0lmWNwVjp1KfM8pBoDG0GPN4vbMNoFCI0w2jZKgqAAD6EwAivh+Eo+2kIY+ozCEyTqDUq+BMTqQqBgfTPCoAA1KgcyoOhqB6PoPgII046TtOs79AuNxLlAq7rvgm7RSUcNXge5THo0Xw0UwF
-
-4EJrN53g+SBPpOr7vhJoPfr+/4cEBIESAjpBI1TaO05IWM427eME8TZMUwgHsdl79OB0zLP02zHONHIvC8/zgtsMLBhixLKFoZh2Ey2geF3SUmYkXFFFUWrkAnQxTFzgknRcSxoXsedcKCRIuAJKJa4IDbYMyXJTRKVmxZqbylDaeUenFIZBTGZApnoH6mDOG+cBodidR2YEI7nNZNxOfz6UQJuaxH15PmUSxR+xfs8WUccyWpdwR+dVllVIugvz
-
-/ICIK+h2ZVwmyh/CA3xcDtGIGsIEv9Fx4kJENcoI0KQDW6hfI6GUqSDQ5MNbko0NrjS2n1Jks0JSwAWkfZayowzrRuDCHUgpuBz1qLZI4pwZ67QQF9A6nRAbHSYHRQ8aDSgujdJw6GhcwT+ieiGV6aBwxMkjNGa6lF4yJnyv9NMhFh6STtvmCGzwoajytHw20jEODMWFAkFiwU1hTDmIkFuAkD4QFwDwLu4l9p9xigPRSykR63QMkZPi+0IAAE0A
-
-z0WIjAGAAYpgb2YciByTID5zArsfVigjz69UogkRK3CWJrBsQMfKUxOhsTWDsG+5F+g8DiKk3eaV+oYKAT8P4AJgTFX/rQiqiIGg1TRBiF645YEtWweSRpXU6T9HGc8EZCCcHYj5BNehhCZrinmtKchMIVpULGnQvU21pLsM4QCTocteE2k4Ayc6wirqiMMfdSRwYXo7PkR9JROSfp/RTBo/MvjtE7SLnou5t0dhw3KMuDCAB5AAsqgZ0AAhAAOh
-
-wF41hODmAINCtgAl8DIpbHqcWGpkWKhPKQL0YgiUcEAqQIQdx4X+gxDASlgFJCBBjJSl4AA1AM0KYzYEkBqSWWRpa1zOZABWSsNwdFBbufcN4dann1qQQ2+BjblFNnvEoz4ohEQ/B4nRM0/z+CdpWcFULYUIuRaijg6L3BYpxXiglUBKUkt1uShAzKaV0oZaQJl6pkUsrZc6/1KLuW8qgPywVWd0JYVYHnQWNLxEQGLqRW+Zd4ipKrhwUx5jKJTH
-
-yXXfyaweHz1bk43Acw3E931QCyAslmDaSHiDMRY8tLO3QFPMAbDChBKEqQB4FAV5cFBfE9AGIB3YgPjUo+m5BipMydwYKFTS7P0fiSF+A1mkSG+HMTQaweBAliX/UqXSt3oBRLVAZWJGrDPgWZeZ0yEAoKyYI1+mDWoPrwfyZZlFRRrNIRspaWzKFvTwXs1UjDoCjp4Kw40HD9onMzcYy5Z0+I3PFsCmGJQHpwikc80DNwFGfX2h81RyYAaaJBp4
-
-wFkM/FYcgHANgb4ZFqlOGAfINRijpS42x6hNQOOcaXWxsAnReOnD45AfAoQoBvH0OuGQpouxMaxP8w5JQ7gYigPC/ib5lAHJ2JkYg2m4S6f0x1KIyqWz9rYBQWKuAa1qcgIZqzA67PBPHTZs8yHs0136GsNicwEibA2A4tuY6BhVt7gako9bG1/NQGIgJs9e0SCXs4aEuA4D0hHfUCQ28ogpU1ZAKdYVXLcFPp5SZ9oH4yRXWgBMa6Gnmaae/XK+
-
-VCqd2PVCU9rXt0cM0AgL0Qzmp3tJJ+3ayCqu8EfbM+9Yyv1LP2SskoxD1mUUWkyChq1ZESYgF0ghqBIObxYTUbtAh4Pml+kq/hVy0OXQwwYkFTIcOBieaGAjJQiPvJUb9NR3yS3Jvi9RyTQLHv0YYN5nNtcgqcTyokVJ/EwvOPaJFhzFTvFQCbXRhASXihz1KMEsQcwhDQqy6TOJuXz2JP3gyK+ZW0BWMqz1Bk9dtB+XyamToawBhWNKWK3Yaaji
-
-JTqYVprE2Ws9O3XlAqRUusAO6VVc9fS6qDJvSNrBcz5vi4mcz5b6DWSzbG1rkoiyDvTRW/+2dG2bhbZeTQzaP7ge3Au2gE5ixrunWm3dkRYOk0vbw+9nb71FGcNI798jPygZA+iyD2jN1wdgokPCoQeJiCoHswAKwhJkbAMBUAZay8i0IYQoCoEAEmEqBmNMHdeX9PTqhVThwv0VJEq1xSucjKysaqJAKr1kY5VGLVVyvVSQM22JtVWyYFF2tEBP
-
-gOxNTpZPqf0/ECz8eXP+fyCF8dk62vVeyXZ9r8X8W2JUIxtzrhRNmiS6C+FBmj31czFznCgsdoKT7F8TLUJI9i4xLVrM14g2oPPFi2hpOPO2rpLjj2o6O5tZoOgXpIM4CiPQBTnZB5lQI5JdvTpROFEzhfNfHVvzCLk/FcI+meiAtLh1h0iev6OQRev0vVMNnAhrnNu1NrjSFNubvrjMqNlyMbpAKbj+lwbPpbmQkBgqCBkHmBsQAdkdtBrBh1C7
-
-lwuUv3jdqho6OhkoqAQ8o9G9ixnIoRm8qHj9l8hRr8lorbDPgWPotjjsIxsxmGGxgJjUNxiJrxsMOxsJq4SkmJjULtlJncLJvJu6EpsxgAephZlpjpilOEU5nCMZo4DEapv1Jpi5jZm5rERgHCGkbZiELAROg/j5k/gyJsFsFYkUixKFuWosKjpkbFsARYYltPIEjAeUGlsgXwgQKgeUPlvUpOgyKVkyLOnTkyAutVgQbftksQeumQb1p/IsNgHM
-
-LgEWHLj1pLp/AgOApoFAkwYbnwWwRERgs+rduwe+qMgcQIcIN+ktr+kQqIYBptsBttmqLtvtj+nIZTnMAoUcghjKJUaoZ7oIhdD7rYc9o8s9IHi8cHsRnGJ8n9mYVHhYU7tYZhkmlmlDtUlMFxFzlzsIYjuWmsLUckf3EAT4o0WpFAfjgvBAJgKQAABoFQvCEA1E5Z2RgqYH2gjE3Cbg8DW4lBjGUT+bxBcTrARQyjsS/SCKVJ3yDBHx9GkHNasj
-
-kHfALFLErHPadK0FzHQDK5XoNQwLq4fr8HMhHGcEza8GIJjTXFTR/pzQAbrabISHPEGEm4O43FO57Tmh1yFEnEmSaGom+jgnSJ26fZGEkYmHwmR5FzR5WGg6gmwwQHwrLgEgKDOjJmoCIDszqBBrIovS+oZnKal4V4WbKDix14l7IpWpsB3DyDIoADtCatKpeL2jKwsDweoumzA9Z/Y3KqAWAPgTGUQmgeIko6epekgYo3ZiiuACWHwFAqAjg+Wt
-
-o3Z+guAy8E5dYcANKHApmjUUsTewo/OreysqsneUA3eR4L0iq/eKqF5t4o+RWEAE+uq0+jms+RqAE+AE8SeyZqZ6ZmZgsrKIQUAuZWQ+Z9hWQteJZZZx+IFHAVZNZyA3ZeEdwqALZ+Z2A7ZrAKUXZHADZXKAYfZmAA5aguAw5RAsAY5qAG5U5MYM5QIc5C5hAS5nAK5a5zgG5GZ25u5TIZ+Occal++E1+qaVSd+1EAJj+uaOSXEPO7QLE/xjoX+7
-
-cLERJlhb59RZJza9yJu4BpqEgna3aVJ+RNmSB5A9Azgwg+psMo6zicB/RzkhU2BPARSeBWSQmMUhBcpouq6ipb86xICnQeASwhJqxWp/l9BKu16BpzBRpFxJpOuqC5pLBRucVghNxwhq29pdcjpkYkhUJ0hshbGUGlOMGp2cGxynQQWPp6hfp92Wh2lEiuhEJ+hu2X2xhcJEeAOwMmRKJvudhhZjhnGzhXGHhbhnGEmnhnGYA7lnGom414mGY0mQ
-
-RagIRhZmRGmyqCRpmxJNwhmW1SRalKRlmcBGRO1JQzmJ1eRfaBRElRRUlKS3OpS8YVRQkLYqlTuGlmOIBFJzRyWrRqWbAy8lla8Vl6sNlvR3lHJW4FWQx5WZ8U2PAMNHlkx2JjWPlpxypgVuAwV1B3WYViuICmgB6PAmgmguxFp42hxCVL6SVsVuC9u+CQhtpJCVuOV2yH2lx5UhVnGxVc4XxZVihFVmw1VXuGhdVAZYJTVwZHNEAbV4ZHV6iXVM
-
-Zb5vV8Z5y/CGJDOpRMlXEL17c8K71MeUgGOWO8eOOv1eOKW6AmAAwhAAA0tOF2HAN0QkqalDSmKkpuCxBkgjasNoP5nlHlIsN7VYlFMupMZYrUmjQqRjdqb8CmNwvTdhpqeVHQbqYwWrjFecUndwU+mab5WcZrqlVcYtjaXcXaazeIblc6a8W6fqEbZ6a7pVQDlmr6fPP6X1ZLbhnoSGZAHLbCWRorZRj1XGWbWeeUFBB2D2OoJSoADAMNU+iaFe
-
-ebA1oBA+A09kgGETonYzoAYBILwgAsAyVkcBAghCsDkWSgEh6CBCoCz2dDOAJBH07miwQhTjX0IC3332P3Ior1MBr0b1b3MCdgAC8CWZ9hAF9lFAA65Xi/SOMihuW8LCHBShVpj6jAC8FhZ2bmWYAJE/lhECMwBqLfdmcBUnARagIqM6MwE/cihXgimgIqPRASAGBhIBKgKuRwH0HucKgeZREeZOJKirNKjuF3sPj3leX3jcOeIPneRqubEyM+db
-
-GjkQh+Y7F+RAZPZCBvXPQvaaEvagL/eQPiAA9vXCnvYfcfafaEBAyObAFfZ8B/XfQ/U/YQHA2/Y45/S4z/avSY72IAyA2AzY5A3njA24+KHBYg9qCg16mg+VIypg9WdhcoLhQgLgznggAQ0Q+qCQ0BTGOQ72VQzQ8ffQ/Cow8w6w+w5w9w7xdnLGnwwXMJYQeXIUZrZfHYgkDxKcniUpWOi8IbTPp9abQlg1XtrpTpAZS0SZMEmlkwA8FI2DZTnt
-
-ggDvJDUkkcDOkcACK5eVjVsjaJQdNHagBuhLgTd8NgN7S4rgLjfLsqVAhcxc+TclfsTnfFRwbrrcacXsdGMwLFK82lWXashXWIY8U6b3XtnXQwkVcdmgPzRbepkoQCIMCLUCR3WrY1d3c1eC/3d9IPf9sPWdbHjYWPbdW0/GI3P5kUj044kJM6AM+pSbd9f4vC0ZeUBhBOEYHMJysuOTqyQ0NTq0OaNge/js/VimNoK/p0CFNMCxG/sLbVhHcLkc
-
-yc0qXHRczwFczc2sQTRFXqU83TUgqaR88IW+nsZaQtmbszWttlVXezVIQzeButYi5VUhhcgItcuLZ3ToZi9Lfa6GSHvLXiwidGUiUbarSSwmXpegJChwH2dZsjCM3iBhLCPPbCMqNQKgIAHAMqMHYAA+uiHTIAPAMGbcz2gGQeo0QCAB9teybHA2gGmUAtKqAoDy4LYioCkAYzotedwtY9M7QScUwoMaTTAqAG1oN4q+58ayLi4gjbewjHeoj554
-
-jl5pKXmA+l4y79594j5SjU+Kjhq8+GjUbEAMbcb8zqkSbKb256bWbObkI+bmMxbZ7Zbgolb1bFetb9bUQjb9MLbbbHbXbFePbCc/bfMg7Ao1oo7kRp+dTF+3AjT5hN+BzLTpLvmwoNSti/kQUClJkvTziAY9L6OpJX15JT2NC4zk8Bk4A1CzicAcARIn0UL6ssUGQ5Q+4hwPQDAhACAFA8KKdgCcdUCQn0CWqIg9UiojQ+gRIpzwCX8fwfwLQT5Y
-
-nL0En6QfHNBqd2purGdBQSn/aKnkny4t6zz5ron+nWQqnUnk2HzR0en4nkn0nBuFNxudnBn6QGEJdlrun2AynFnknkK9xDpnHPn5nUAlny4s7J5IjZn9n6QEXvD8avJwXvnYXkn2kd5wQQIoNrnfn6QDHx1rmV1Z1OXqX6QAY2Rl19m11nmyXoXlnORgE4N/oinIXsX+gy4f+HnJI1GtwmF7w+AdJ3AzgawswCd7Q0wCwCQUwoU7uunzAfX+IIS6
-
-SbOV8liU3pGUwUwKhJQRgbABgTHx0BA+E/QErm3WJiwUBJXlnHnXNP6EL5Uin0IJAIq4REAT3xAYE0XkA739qCA5XZFwQXr33f4CuH8+O9K+AwSpAyg4IAAFIkO7rwDkhmwjxm50IFAAJTYhYTKCGgYg9Ew+4Dw8Py8Ak+o3HOY+TPecpeOfPABejgISvdAideGZMDbWHZMiZAA+cIIc3DYBEDO35xX5MiOysdC9CVEJoTFzwfC83Crl+ykD0Tdw
-
-y8S9y8YhIz/eaCA8q/m1dqcd2AZ4rPZAEiOxwC/ea/a8RtnBISMCAR7f4AHdMJLNhDBBISXJPhNkGCNeU7Imj0jNkclDM8GAEhpBu+HjaFFzSYtg28IB2/vAHKXeODMDc8DhwzQqZBCBq0QDDkmYpRdiBCn2Yi5pZHc9J1CL7XKAW88+y/t3QokAQVTim9wC6ZV/7QFzgBsI4h4jhAML6QgD6RAA
+```json
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://github.com/zsviczian/obsidian-excalidraw-plugin",
+  "elements": [
+    {
+      "id": "title", "type": "text",
+      "x": 50, "y": 14, "width": 860, "height": 28,
+      "angle": 0, "strokeColor": "#1e40af", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 4001, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Step 4 — Attack Path Construction",
+      "fontSize": 24, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Step 4 — Attack Path Construction",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "subtitle", "type": "text",
+      "x": 50, "y": 46, "width": 860, "height": 18,
+      "angle": 0, "strokeColor": "#374151", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 4002, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Worker: attack-paths.worker.ts  |  Plain adjacency list  |  BFS + Gemini plausibility  |  maxHops: configurable 「default 10」",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Worker: attack-paths.worker.ts  |  Plain adjacency list  |  BFS + Gemini plausibility  |  maxHops: configurable 「default 10」",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "box-input", "type": "rectangle",
+      "x": 30, "y": 80, "width": 170, "height": 145,
+      "angle": 0, "strokeColor": "#1e40af", "backgroundColor": "#a5d8ff",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 4003, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-input", "type": "text",
+      "x": 35, "y": 92, "width": 160, "height": 124,
+      "angle": 0, "strokeColor": "#1e40af", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 4004, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "FROM DB\nAsset[]\nInterface[]\nTrustBoundary[]\nSoftwareInstance[]\nThreat[]\nCVEMatch[]",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "FROM DB\nAsset[]\nInterface[]\nTrustBoundary[]\nSoftwareInstance[]\nThreat[]\nCVEMatch[]",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "arrow-in", "type": "arrow",
+      "x": 200, "y": 152, "width": 50, "height": 0,
+      "angle": 0, "strokeColor": "#3b82f6", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 2 }, "seed": 4005, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false,
+      "points": [[0, 0], [50, 0]], "lastCommittedPoint": null,
+      "startBinding": null, "endBinding": null, "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "id": "box-graph", "type": "rectangle",
+      "x": 250, "y": 80, "width": 200, "height": 55,
+      "angle": 0, "strokeColor": "#374151", "backgroundColor": "#eebefa",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 4006, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-graph", "type": "text",
+      "x": 255, "y": 92, "width": 190, "height": 32,
+      "angle": 0, "strokeColor": "#374151", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 4007, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Build adjacency list\n「Map<assetId, {node, edges[]}>」",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Build adjacency list\n「Map<assetId, {node, edges[]}>」",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "arrow-graph-bfs", "type": "arrow",
+      "x": 350, "y": 135, "width": 0, "height": 30,
+      "angle": 0, "strokeColor": "#374151", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 2 }, "seed": 4008, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false,
+      "points": [[0, 0], [0, 30]], "lastCommittedPoint": null,
+      "startBinding": null, "endBinding": null, "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "id": "box-bfs", "type": "rectangle",
+      "x": 250, "y": 165, "width": 200, "height": 90,
+      "angle": 0, "strokeColor": "#7c3aed", "backgroundColor": "#e5dbff",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 4009, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-bfs", "type": "text",
+      "x": 255, "y": 175, "width": 190, "height": 72,
+      "angle": 0, "strokeColor": "#7c3aed", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 4010, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "BFS per threat\nentry → high-value targets\nrespect edge direction\ntrack boundary crossings\nprune at maxHops",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "BFS per threat\nentry → high-value targets\nrespect edge direction\ntrack boundary crossings\nprune at maxHops",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "arrow-bfs-llm", "type": "arrow",
+      "x": 350, "y": 255, "width": 0, "height": 30,
+      "angle": 0, "strokeColor": "#374151", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 2 }, "seed": 4011, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false,
+      "points": [[0, 0], [0, 30]], "lastCommittedPoint": null,
+      "startBinding": null, "endBinding": null, "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "id": "text-candidates", "type": "text",
+      "x": 360, "y": 262, "width": 100, "height": 16,
+      "angle": 0, "strokeColor": "#757575", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 4012, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "candidate paths",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "left", "verticalAlign": "middle",
+      "containerId": null, "originalText": "candidate paths",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "box-llm", "type": "rectangle",
+      "x": 250, "y": 285, "width": 200, "height": 75,
+      "angle": 0, "strokeColor": "#c2410c", "backgroundColor": "#ffd8a8",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 4013, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-llm", "type": "text",
+      "x": 255, "y": 295, "width": 190, "height": 56,
+      "angle": 0, "strokeColor": "#c2410c", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 4014, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "Gemini plausibility check\n→ plausible: boolean\n→ feasibilityScore 「0-1」\n→ reasoning: string",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "Gemini plausibility check\n→ plausible: boolean\n→ feasibilityScore 「0-1」\n→ reasoning: string",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "arrow-llm-out", "type": "arrow",
+      "x": 450, "y": 250, "width": 100, "height": 0,
+      "angle": 0, "strokeColor": "#0ca678", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 2 }, "seed": 4015, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false,
+      "points": [[0, 0], [100, 0]], "lastCommittedPoint": null,
+      "startBinding": null, "endBinding": null, "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "id": "text-filter", "type": "text",
+      "x": 455, "y": 232, "width": 90, "height": 16,
+      "angle": 0, "strokeColor": "#757575", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 4016, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "filter plausible",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "left", "verticalAlign": "middle",
+      "containerId": null, "originalText": "filter plausible",
+      "autoResize": true, "lineHeight": 1.25
+    },
+    {
+      "id": "box-output", "type": "rectangle",
+      "x": 550, "y": 80, "width": 310, "height": 280,
+      "angle": 0, "strokeColor": "#0ca678", "backgroundColor": "#b2f2bb",
+      "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [],
+      "roundness": { "type": 3 }, "seed": 4017, "version": 1,
+      "isDeleted": false, "boundElements": null, "updated": 1, "link": null, "locked": false
+    },
+    {
+      "id": "text-output", "type": "text",
+      "x": 555, "y": 92, "width": 300, "height": 258,
+      "angle": 0, "strokeColor": "#15803d", "backgroundColor": "transparent",
+      "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
+      "roughness": 1, "opacity": 100, "groupIds": [], "roundness": null,
+      "seed": 4018, "version": 1, "isDeleted": false, "boundElements": null,
+      "updated": 1, "link": null, "locked": false,
+      "text": "AttackPath[]\n「ranked by overallPathRisk DESC」\n「only plausible paths included」\n\nhops[] 「asset → interface → asset...」\nhopCount\ntrustBoundaryCrossings\nfeasibilityScore 「0-1, from Gemini」\nimpactScore 「0-1, target asset criticality」\noverallPathRisk = feasibility x impact\nreasoning 「LLM explanation」\nevidenceRefs[] 「threat + CVE IDs」\n\n→ DB: INSERT many",
+      "fontSize": 14, "fontFamily": 5, "textAlign": "center", "verticalAlign": "middle",
+      "containerId": null, "originalText": "AttackPath[]\n「ranked by overallPathRisk DESC」\n「only plausible paths included」\n\nhops[] 「asset → interface → asset...」\nhopCount\ntrustBoundaryCrossings\nfeasibilityScore 「0-1, from Gemini」\nimpactScore 「0-1, target asset criticality」\noverallPathRisk = feasibility x impact\nreasoning 「LLM explanation」\nevidenceRefs[] 「threat + CVE IDs」\n\n→ DB: INSERT many",
+      "autoResize": true, "lineHeight": 1.25
+    }
+  ],
+  "appState": { "gridSize": null, "viewBackgroundColor": "#ffffff" },
+  "files": {}
+}
 ```
 %%

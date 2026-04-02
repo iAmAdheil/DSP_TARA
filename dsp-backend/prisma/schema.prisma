@@ -35,8 +35,6 @@ enum RunStatus {
 
 enum ArtifactType {
   text
-  form
-  file
 }
 
 enum CveMatchTier {
@@ -84,12 +82,13 @@ model User {
 // ─── Project ────────────────────────────────────────────────────────
 
 model Project {
-  id        String        @id @default(cuid())
-  name      String
-  domain    ProjectDomain
-  status    ProjectStatus @default(active)
-  createdBy String        @map("created_by")
-  createdAt DateTime      @default(now()) @map("created_at")
+  id             String        @id @default(cuid())
+  name           String
+  domain         ProjectDomain
+  status         ProjectStatus @default(active)
+  systemContext   String?       @map("system_context")
+  createdBy      String        @map("created_by")
+  createdAt      DateTime      @default(now()) @map("created_at")
 
   creator User  @relation(fields: [createdBy], references: [id])
   runs    Run[]
@@ -138,6 +137,7 @@ model InputArtifact {
   id          String       @id @default(cuid())
   runId       String       @map("run_id")
   type        ArtifactType
+  content     String
   filename    String?
   contentHash String?      @map("content_hash")
   uploadedAt  DateTime     @default(now()) @map("uploaded_at")
@@ -201,8 +201,9 @@ model SoftwareInstance {
   cpe      String? // CPE identifier for CVE matching
   metadata Json?
 
-  run   Run   @relation(fields: [runId], references: [id], onDelete: Cascade)
-  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  run        Run        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  asset      Asset      @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  cveMatches CveMatch[]
 
   @@map("software_instances")
 }
@@ -242,7 +243,9 @@ model SafetyFunction {
 model Threat {
   id              String  @id @default(cuid())
   runId           String  @map("run_id")
+  title           String?
   category        String  // STRIDE/HEAVENS category
+  framework       String  @default("stride") // "stride" or "heavens"
   description     String
   confidence      Float
   impactBreakdown Json?   @map("impact_breakdown")
@@ -281,17 +284,22 @@ model ThreatImpactedAsset {
 // ─── CVE Match ──────────────────────────────────────────────────────
 
 model CveMatch {
-  id            String       @id @default(cuid())
-  runId         String       @map("run_id")
-  cveIdentifier String       @map("cve_identifier") // e.g. CVE-2024-1234
-  matchTier     CveMatchTier @map("match_tier")
-  matchScore    Float        @map("match_score")
-  whyRelevant   String?      @map("why_relevant")
-  publishedDate DateTime?    @map("published_date")
+  id                        String       @id @default(cuid())
+  runId                     String       @map("run_id")
+  cveIdentifier             String       @map("cve_identifier") // e.g. CVE-2024-1234
+  description               String?
+  matchTier                 CveMatchTier @map("match_tier")
+  matchScore                Float        @map("match_score")
+  cvssScore                 Float?       @map("cvss_score")
+  affectedVersions          Json?        @map("affected_versions")
+  whyRelevant               String?      @map("why_relevant")
+  publishedDate             DateTime?    @map("published_date")
+  matchedSoftwareInstanceId String?      @map("matched_software_instance_id")
 
-  run         Run             @relation(fields: [runId], references: [id], onDelete: Cascade)
-  matchedAssets CveMatchAsset[]
-  riskItems   RiskItem[]
+  run                    Run              @relation(fields: [runId], references: [id], onDelete: Cascade)
+  matchedSoftwareInstance SoftwareInstance? @relation(fields: [matchedSoftwareInstanceId], references: [id], onDelete: SetNull)
+  matchedAssets          CveMatchAsset[]
+  riskItems              RiskItem[]
 
   @@map("cve_matches")
 }
@@ -310,14 +318,17 @@ model CveMatchAsset {
 // ─── Attack Path ────────────────────────────────────────────────────
 
 model AttackPath {
-  id               String @id @default(cuid())
-  runId            String @map("run_id")
-  startSurface     String @map("start_surface")
-  targetAssetId    String @map("target_asset_id")
-  steps            Json   // ordered array of step objects
-  feasibilityScore Float  @map("feasibility_score")
-  impactScore      Float  @map("impact_score")
-  overallPathRisk  Float  @map("overall_path_risk")
+  id                      String @id @default(cuid())
+  runId                   String @map("run_id")
+  startSurface            String @map("start_surface")
+  targetAssetId           String @map("target_asset_id")
+  steps                   Json   // ordered array of step objects
+  feasibilityScore        Float  @map("feasibility_score")
+  impactScore             Float  @map("impact_score")
+  overallPathRisk         Float  @map("overall_path_risk")
+  reasoning               String?
+  trustBoundaryCrossings  Int    @default(0) @map("trust_boundary_crossings")
+  evidenceRefs            Json?  @map("evidence_refs") // threat + CVE IDs used
 
   run         Run       @relation(fields: [runId], references: [id], onDelete: Cascade)
   targetAsset Asset     @relation(fields: [targetAssetId], references: [id], onDelete: Cascade)
@@ -341,6 +352,7 @@ model RiskItem {
   exposureModifier Float          @map("exposure_modifier")
   finalScore       Float          @map("final_score")
   severity         RiskSeverity
+  factorBreakdown  Json?          @map("factor_breakdown")
 
   run        Run         @relation(fields: [runId], references: [id], onDelete: Cascade)
   threat     Threat?     @relation(fields: [threatId], references: [id], onDelete: SetNull)
@@ -357,6 +369,7 @@ model RiskItem {
 model Mitigation {
   id                    String @id @default(cuid())
   runId                 String @map("run_id")
+  title                 String?
   controlType           String @map("control_type")
   description           String
   estimatedEffort       String? @map("estimated_effort")

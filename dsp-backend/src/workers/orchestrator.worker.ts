@@ -1,32 +1,68 @@
-import { Worker } from "bullmq";
+import { Worker, QueueEvents, Queue } from "bullmq";
 import { redisConnection } from "../queues/redis-connection.js";
 import { QueueNames } from "../queues/queue-names.js";
-import { flowProducer } from "../queues/run-queue.js";
+import { flowProducer, threatsQueue, cvesQueue } from "../queues/run-queue.js";
 import { prisma } from "../db/prisma-client.js";
 import { setStepRunning, setStepCompleted, failRun } from "../utils/run-progress.js";
 import { IngestionService } from "../modules/ingestion/ingestion.service.js";
 
 const ingestionService = new IngestionService();
 
+// QueueEvents listeners for sibling cancellation (Issue #9)
+const threatsEvents = new QueueEvents(QueueNames.threatsGeneration, { connection: redisConnection });
+const cvesEvents = new QueueEvents(QueueNames.cveMatching, { connection: redisConnection });
+
+/**
+ * Attempt to remove a sibling job from its queue if it's still in waiting/delayed state.
+ * Does nothing if the job is already active or completed — the gate check handles that.
+ */
+async function tryRemoveSibling(queue: Queue, jobName: string, runId: string) {
+  const jobs = [
+    ...await queue.getJobs(["waiting"]),
+    ...await queue.getJobs(["delayed"]),
+  ];
+  for (const job of jobs) {
+    if (job.data?.runId === runId) {
+      try {
+        await job.remove();
+      } catch {
+        // Job may have transitioned to active between getJobs and remove — that's fine
+      }
+    }
+  }
+}
+
+// When threats job fails, cancel the CVE sibling if still waiting
+threatsEvents.on("failed", async ({ jobId }) => {
+  const job = await threatsQueue.getJob(jobId);
+  if (!job) return;
+  const { runId } = job.data as { runId: string };
+  await tryRemoveSibling(cvesQueue, "cves", runId);
+});
+
+// When CVE job fails, cancel the threats sibling if still waiting
+cvesEvents.on("failed", async ({ jobId }) => {
+  const job = await cvesQueue.getJob(jobId);
+  if (!job) return;
+  const { runId } = job.data as { runId: string };
+  await tryRemoveSibling(threatsQueue, "threats", runId);
+});
+
 /**
  * Orchestrator worker:
  * 1. Runs ingestion inline (step 1)
- * 2. Uses FlowProducer to enqueue steps 2–6 as a dependency tree
+ * 2. Uses FlowProducer to enqueue steps 2-6 as a dependency tree
  *    - Steps 2 (threats) + 3 (cves) run in parallel as children of step 4
- *    - Steps 4→5→6 are sequential via parent/child nesting
- *
- * Per bullmq-notes.md: step 1 runs BEFORE flow.add() because BullMQ
- * doesn't support a single job being a child of two parents.
+ *    - Steps 4->5->6 are sequential via parent/child nesting
  */
 export const orchestratorWorker = new Worker(
   QueueNames.runPipeline,
   async (job) => {
     const { runId } = job.data as { runId: string };
 
-    // Mark run as running
     await prisma.run.update({ where: { id: runId }, data: { status: "running" } });
 
-    // ── Step 1: Ingestion (inline) ──────────────────────────────────
+    // Step 1: Ingestion (inline)
     try {
       await setStepRunning(runId, "ingestion");
       await ingestionService.ingest(runId);
@@ -36,9 +72,8 @@ export const orchestratorWorker = new Worker(
       throw err;
     }
 
-    // ── Steps 2–6: Enqueue as BullMQ Flow ───────────────────────────
-    // Tree is declared root-first (last step at top).
-    // Execution order is bottom-up: children run first, parent runs after all children complete.
+    // Steps 2-6: Enqueue as BullMQ Flow
+    // Tree is declared root-first. Execution is bottom-up.
     //
     // mitigations (step 6) — root, runs last
     //   └─ risk-scoring (step 5)

@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../db/prisma-client.js";
 
 export type StepName =
@@ -24,47 +25,42 @@ export function buildDefaultSteps(): Record<StepName, StepStatus> {
 }
 
 export async function setStepRunning(runId: string, step: StepName) {
-  const run = await prisma.run.findUniqueOrThrow({ where: { id: runId } });
-  const steps = run.steps as Record<StepName, StepStatus>;
-  steps[step] = "running";
-  await prisma.run.update({
-    where: { id: runId },
-    data: { status: "running", steps },
-  });
+  const path = `{${step}}`;
+  await prisma.$executeRaw`
+    UPDATE "runs"
+    SET steps = jsonb_set(steps, ${path}::text[], ${`"running"`}::jsonb),
+        status = 'running'
+    WHERE id = ${runId}
+  `;
 }
 
 export async function setStepCompleted(runId: string, step: StepName) {
-  const run = await prisma.run.findUniqueOrThrow({ where: { id: runId } });
-  const steps = run.steps as Record<StepName, StepStatus>;
-  steps[step] = "completed";
-  await prisma.run.update({
-    where: { id: runId },
-    data: { steps },
-  });
+  const path = `{${step}}`;
+  await prisma.$executeRaw`
+    UPDATE "runs"
+    SET steps = jsonb_set(steps, ${path}::text[], ${`"completed"`}::jsonb)
+    WHERE id = ${runId}
+  `;
 }
 
 export async function failRun(runId: string, step: StepName, message: string) {
-  const run = await prisma.run.findUniqueOrThrow({ where: { id: runId } });
-  const steps = run.steps as Record<StepName, StepStatus>;
-  steps[step] = "failed";
-  await prisma.run.update({
-    where: { id: runId },
-    data: {
-      status: "failed",
-      failedStep: step,
-      errorMessage: message,
-      steps,
-      completedAt: new Date(),
-    },
-  });
+  const path = `{${step}}`;
+  await prisma.$executeRaw`
+    UPDATE "runs"
+    SET steps = jsonb_set(steps, ${path}::text[], ${`"failed"`}::jsonb),
+        status = 'failed',
+        failed_step = ${step},
+        error_message = ${message},
+        completed_at = NOW()
+    WHERE id = ${runId}
+  `;
 }
 
 export async function completeRun(runId: string) {
-  await prisma.run.update({
-    where: { id: runId },
-    data: {
-      status: "completed",
-      completedAt: new Date(),
-    },
-  });
+  await prisma.$executeRaw`
+    UPDATE "runs"
+    SET status = 'completed',
+        completed_at = NOW()
+    WHERE id = ${runId}
+  `;
 }

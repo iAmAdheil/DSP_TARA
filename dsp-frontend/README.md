@@ -71,3 +71,7 @@ export default defineConfig([
   },
 ])
 ```
+
+## Project Docs
+
+- NVD API reference for agents: `docs/nvd-apis-for-dev-agents.md`

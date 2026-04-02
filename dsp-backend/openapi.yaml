@@ -1,0 +1,1193 @@
+openapi: 3.1.0
+
+info:
+  title: DSP (Digital Security Platform) API
+  description: |
+    Backend API for the Digital Security Platform — a TARA (Threat Analysis and Risk Assessment)
+    pipeline that ingests system artifacts, identifies threats, matches CVEs, builds attack paths,
+    scores risk, and generates mitigations.
+
+    ## Pipeline Overview
+    1. **Ingest** — parse uploaded artifacts into a canonical system model
+    2. **Threats** — STRIDE-based threat identification
+    3. **CVE Matching** — match software instances to known vulnerabilities
+    4. **Attack Paths** — construct feasible attack paths across trust boundaries
+    5. **Risk Scoring** — score each finding by likelihood, impact, and exploitability
+    6. **Mitigations** — generate control recommendations per risk item
+    7. **Export** — produce reports in JSON, Markdown, or PDF
+
+    ## Response Envelope
+    All responses follow a consistent envelope:
+    ```json
+    { "ok": true,  "data": <resource> }
+    { "ok": false, "error": { "code": "...", "message": "..." } }
+    ```
+
+    ## Async Operations
+    Run creation (`POST /projects/:projectId/runs`) and export creation
+    (`POST /runs/:runId/exports`) return **202 Accepted** — the resource is created
+    immediately but processing is queued. Poll the resource to track status.
+  version: 1.0.0
+  contact:
+    name: DSP Team
+
+servers:
+  - url: http://localhost:3001
+    description: Local development
+
+tags:
+  - name: Health
+    description: Service health checks
+  - name: Users
+    description: User management
+  - name: Projects
+    description: Project management
+  - name: Runs
+    description: Analysis pipeline runs
+  - name: Threats
+    description: Threat analysis results
+  - name: CVEs
+    description: CVE matching results
+  - name: Attack Paths
+    description: Attack path analysis results
+  - name: Risks
+    description: Risk scoring results
+  - name: Mitigations
+    description: Mitigation recommendations
+  - name: Exports
+    description: Report export generation
+
+paths:
+  # ---------------------------------------------------------------------------
+  # Health
+  # ---------------------------------------------------------------------------
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      description: Returns service and database connectivity status.
+      tags:
+        - Health
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                ok: true
+                data:
+                  status: ok
+                  db: connected
+
+  # ---------------------------------------------------------------------------
+  # Users
+  # ---------------------------------------------------------------------------
+  /users:
+    post:
+      operationId: createUser
+      summary: Create a user
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            example:
+              name: Alice Chen
+              email: alice@example.com
+              role: analyst
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /users/{userId}:
+    get:
+      operationId: getUser
+      summary: Get a user by ID
+      tags:
+        - Users
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Projects
+  # ---------------------------------------------------------------------------
+  /projects:
+    post:
+      operationId: createProject
+      summary: Create a project
+      tags:
+        - Projects
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+            example:
+              name: Vehicle Gateway Analysis
+              domain: automotive
+              createdBy: cma1b2c3d4e5f6g7h8i9j
+              systemContext: Central gateway ECU bridging OBD-II, CAN bus, and Ethernet backbone.
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      summary: Get a project by ID
+      description: Returns project details including creator info and the last 10 runs.
+      tags:
+        - Projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      operationId: updateProject
+      summary: Update project system context
+      tags:
+        - Projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+            example:
+              systemContext: Updated description of the system under analysis.
+      responses:
+        "200":
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Runs
+  # ---------------------------------------------------------------------------
+  /projects/{projectId}/runs:
+    post:
+      operationId: createRun
+      summary: Start an analysis run
+      description: |
+        Creates a new run and queues it for asynchronous pipeline processing.
+        Returns **202 Accepted** immediately. Poll `GET /runs/{runId}` to track status.
+
+        At least one artifact (type `text`) must be provided. Artifacts are parsed
+        during the ingestion step to build the canonical system model.
+      tags:
+        - Runs
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRunRequest"
+            example:
+              initiatedBy: cma1b2c3d4e5f6g7h8i9j
+              artifacts:
+                - type: text
+                  content: "System: Central Gateway ECU\nAssets: OBD port, CAN bus, Ethernet..."
+      responses:
+        "202":
+          description: Run queued for processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /runs/{runId}:
+    get:
+      operationId: getRun
+      summary: Get a run by ID
+      description: Returns run details including current status, step progress, and project reference.
+      tags:
+        - Runs
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Run found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Threats
+  # ---------------------------------------------------------------------------
+  /runs/{runId}/threats:
+    get:
+      operationId: getThreats
+      summary: List threats for a run
+      description: |
+        Returns all STRIDE-based threats identified during the run's threat analysis step.
+        Each threat includes entry point assets and impacted assets.
+      tags:
+        - Threats
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Threat list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThreatListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # CVEs
+  # ---------------------------------------------------------------------------
+  /runs/{runId}/cves:
+    get:
+      operationId: getCves
+      summary: List CVE matches for a run
+      description: |
+        Returns all CVE matches found by correlating software instances in the system model
+        against known vulnerabilities. Includes matched asset details.
+      tags:
+        - CVEs
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: CVE match list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CveListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Attack Paths
+  # ---------------------------------------------------------------------------
+  /runs/{runId}/attack-paths:
+    get:
+      operationId: getAttackPaths
+      summary: List attack paths for a run
+      description: |
+        Returns all attack paths constructed during analysis, sorted by `overallPathRisk`
+        descending. Each path includes feasibility/impact scores and target asset details.
+      tags:
+        - Attack Paths
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Attack path list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttackPathListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Risks
+  # ---------------------------------------------------------------------------
+  /runs/{runId}/risks:
+    get:
+      operationId: getRisks
+      summary: List risk items for a run
+      description: |
+        Returns all scored risk items, sorted by `finalScore` descending.
+        Each item references its source (threat, CVE match, or attack path) and
+        includes the full factor breakdown.
+      tags:
+        - Risks
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Risk item list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Mitigations
+  # ---------------------------------------------------------------------------
+  /runs/{runId}/mitigations:
+    get:
+      operationId: getMitigations
+      summary: List mitigations for a run
+      description: |
+        Returns all mitigation controls generated for the run, each linked to the
+        risk items it addresses (with severity and final score included).
+      tags:
+        - Mitigations
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Mitigation list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MitigationListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Exports
+  # ---------------------------------------------------------------------------
+  /runs/{runId}/exports:
+    post:
+      operationId: createExport
+      summary: Request a report export
+      description: |
+        Creates a report export job and queues it for async generation.
+        Returns **202 Accepted** immediately.
+
+        **Prerequisite**: The run must be in `completed` status — returns 409 otherwise.
+      tags:
+        - Exports
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExportRequest"
+            example:
+              format: pdf
+      responses:
+        "202":
+          description: Export queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Run is not completed yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                ok: false
+                error:
+                  code: CONFLICT
+                  message: Run must be completed before exporting.
+
+    get:
+      operationId: getExports
+      summary: List exports for a run
+      description: Returns all report exports for the run, sorted by `generatedAt` descending.
+      tags:
+        - Exports
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Export list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+# =============================================================================
+# Components
+# =============================================================================
+components:
+  # ---------------------------------------------------------------------------
+  # Parameters
+  # ---------------------------------------------------------------------------
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: CUID of the user
+      schema:
+        type: string
+        minLength: 1
+
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      description: CUID of the project
+      schema:
+        type: string
+        minLength: 1
+
+    RunId:
+      name: runId
+      in: path
+      required: true
+      description: CUID of the run
+      schema:
+        type: string
+        minLength: 1
+
+  # ---------------------------------------------------------------------------
+  # Reusable Responses
+  # ---------------------------------------------------------------------------
+  responses:
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            ok: false
+            error:
+              code: VALIDATION_ERROR
+              message: "Invalid request: email must be a valid email address"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            ok: false
+            error:
+              code: NOT_FOUND
+              message: Resource not found.
+
+    Conflict:
+      description: Unique constraint violation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            ok: false
+            error:
+              code: CONFLICT
+              message: A record with this value already exists.
+
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            ok: false
+            error:
+              code: INTERNAL_ERROR
+              message: An unexpected error occurred.
+
+  # ---------------------------------------------------------------------------
+  # Schemas
+  # ---------------------------------------------------------------------------
+  schemas:
+    # ---- Enums ----
+    UserRole:
+      type: string
+      enum: [owner, analyst, reviewer, viewer]
+      description: User's role within the platform
+
+    ProjectDomain:
+      type: string
+      enum: [automotive, general_system_security]
+      description: Domain context for the project
+
+    ProjectStatus:
+      type: string
+      enum: [active, archived]
+
+    RunStatus:
+      type: string
+      enum: [queued, running, completed, failed]
+      description: Current status of the analysis pipeline run
+
+    StepStatus:
+      type: string
+      enum: [pending, running, completed, failed]
+
+    ArtifactType:
+      type: string
+      enum: [text]
+      description: Type of input artifact
+
+    CveMatchTier:
+      type: string
+      enum: [exact, near, contextual]
+      description: Confidence tier of the CVE match
+
+    RiskSourceType:
+      type: string
+      enum: [threat, cve, attack_path]
+
+    RiskSeverity:
+      type: string
+      enum: [critical, high, medium, low, info]
+
+    ReportFormat:
+      type: string
+      enum: [json, md, pdf]
+
+    ReportStatus:
+      type: string
+      enum: [queued, running, completed, failed]
+
+    # ---- Envelope Schemas ----
+    ErrorEnvelope:
+      type: object
+      required: [ok, error]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+            message:
+              type: string
+              description: Human-readable error description
+            details:
+              type: object
+              additionalProperties: true
+              description: Optional additional error context
+
+    # ---- Health ----
+    HealthResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+          required: [status, db]
+          properties:
+            status:
+              type: string
+              enum: [ok, degraded]
+            db:
+              type: string
+              enum: [connected, disconnected]
+
+    # ---- User ----
+    User:
+      type: object
+      required: [id, name, email, role, createdAt]
+      properties:
+        id:
+          type: string
+          description: CUID identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/UserRole"
+        createdAt:
+          type: string
+          format: date-time
+        lastActiveAt:
+          type: string
+          format: date-time
+
+    CreateUserRequest:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/UserRole"
+
+    UserResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: "#/components/schemas/User"
+
+    # ---- Project ----
+    Project:
+      type: object
+      required: [id, name, domain, status, createdBy, createdAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        domain:
+          $ref: "#/components/schemas/ProjectDomain"
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        systemContext:
+          type: ["string", "null"]
+        createdBy:
+          type: string
+          description: User ID of the project creator
+        createdAt:
+          type: string
+          format: date-time
+        creator:
+          $ref: "#/components/schemas/User"
+          description: Populated when fetching a project by ID
+        runs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Run"
+          description: Last 10 runs (populated when fetching by ID)
+
+    CreateProjectRequest:
+      type: object
+      required: [name, domain, createdBy]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        domain:
+          $ref: "#/components/schemas/ProjectDomain"
+        createdBy:
+          type: string
+          description: CUID of the user creating the project
+        systemContext:
+          type: ["string", "null"]
+          description: Free-text description of the system under analysis
+
+    UpdateProjectRequest:
+      type: object
+      required: [systemContext]
+      properties:
+        systemContext:
+          type: string
+          minLength: 1
+          description: Updated system context description
+
+    ProjectResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: "#/components/schemas/Project"
+
+    # ---- Run ----
+    RunSteps:
+      type: object
+      description: Per-step status of the analysis pipeline
+      required: [ingestion, threats, cves, attack_paths, risk, mitigations]
+      properties:
+        ingestion:
+          $ref: "#/components/schemas/StepStatus"
+        threats:
+          $ref: "#/components/schemas/StepStatus"
+        cves:
+          $ref: "#/components/schemas/StepStatus"
+        attack_paths:
+          $ref: "#/components/schemas/StepStatus"
+        risk:
+          $ref: "#/components/schemas/StepStatus"
+        mitigations:
+          $ref: "#/components/schemas/StepStatus"
+
+    Run:
+      type: object
+      required: [id, projectId, initiatedBy, status, steps, startedAt]
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        initiatedBy:
+          type: string
+          description: User ID who initiated the run
+        status:
+          $ref: "#/components/schemas/RunStatus"
+        steps:
+          $ref: "#/components/schemas/RunSteps"
+        errorMessage:
+          type: ["string", "null"]
+        failedStep:
+          type: ["string", "null"]
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        modelVersion:
+          type: ["string", "null"]
+        retrievalIndexVersion:
+          type: ["string", "null"]
+        configSnapshot:
+          type: object
+          additionalProperties: true
+
+    InputArtifact:
+      type: object
+      required: [type, content]
+      properties:
+        type:
+          $ref: "#/components/schemas/ArtifactType"
+        content:
+          type: string
+          description: Raw text content of the artifact
+
+    CreateRunRequest:
+      type: object
+      required: [initiatedBy, artifacts]
+      properties:
+        initiatedBy:
+          type: string
+          description: CUID of the user initiating the run
+        artifacts:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/InputArtifact"
+        configSnapshot:
+          type: object
+          additionalProperties: true
+          description: Optional configuration overrides for this run
+
+    RunResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: "#/components/schemas/Run"
+
+    # ---- Threat ----
+    Asset:
+      type: object
+      required: [id, name, kind]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          description: 'Asset category, e.g. "ECU", "sensor", "gateway", "cloud-service"'
+        metadata:
+          type: object
+          additionalProperties: true
+
+    Threat:
+      type: object
+      required: [id, runId, category, framework, description, confidence]
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        title:
+          type: ["string", "null"]
+        category:
+          type: string
+          description: STRIDE category (e.g. Spoofing, Tampering, Repudiation, etc.)
+        framework:
+          type: string
+          default: stride
+        description:
+          type: string
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        impactBreakdown:
+          type: object
+          additionalProperties: true
+        evidenceRefs:
+          type: object
+          additionalProperties: true
+        entryPoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/Asset"
+          description: Assets serving as attack entry points
+        impactedAssets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Asset"
+          description: Assets affected by this threat
+
+    ThreatListResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Threat"
+
+    # ---- CVE ----
+    CveMatch:
+      type: object
+      required: [id, runId, cveIdentifier, matchTier, matchScore]
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        cveIdentifier:
+          type: string
+          description: 'CVE ID, e.g. "CVE-2021-44228"'
+        description:
+          type: ["string", "null"]
+        matchTier:
+          $ref: "#/components/schemas/CveMatchTier"
+        matchScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        cvssScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 10
+        affectedVersions:
+          type: object
+          additionalProperties: true
+        whyRelevant:
+          type: ["string", "null"]
+        publishedDate:
+          type: string
+          format: date-time
+        matchedSoftwareInstanceId:
+          type: ["string", "null"]
+        matchedAssets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Asset"
+          description: Assets affected by this CVE
+
+    CveListResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CveMatch"
+
+    # ---- Attack Path ----
+    AttackPath:
+      type: object
+      required: [id, runId, startSurface, targetAssetId, steps, feasibilityScore, impactScore, overallPathRisk, trustBoundaryCrossings]
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        startSurface:
+          type: string
+          description: Description of the attack's starting surface
+        targetAssetId:
+          type: string
+        steps:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: Ordered list of attack steps
+        feasibilityScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        impactScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        overallPathRisk:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        reasoning:
+          type: ["string", "null"]
+        trustBoundaryCrossings:
+          type: integer
+          minimum: 0
+          default: 0
+        evidenceRefs:
+          type: object
+          additionalProperties: true
+        targetAsset:
+          $ref: "#/components/schemas/Asset"
+
+    AttackPathListResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttackPath"
+
+    # ---- Risk ----
+    RiskItem:
+      type: object
+      required: [id, runId, sourceType, likelihood, impact, exploitability, exposureModifier, finalScore, severity]
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        sourceType:
+          $ref: "#/components/schemas/RiskSourceType"
+        threatId:
+          type: ["string", "null"]
+        cveMatchId:
+          type: ["string", "null"]
+        attackPathId:
+          type: ["string", "null"]
+        likelihood:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        impact:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        exploitability:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        exposureModifier:
+          type: number
+          format: float
+        finalScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        severity:
+          $ref: "#/components/schemas/RiskSeverity"
+        factorBreakdown:
+          type: object
+          additionalProperties: true
+        threat:
+          $ref: "#/components/schemas/Threat"
+        cveMatch:
+          $ref: "#/components/schemas/CveMatch"
+        attackPath:
+          $ref: "#/components/schemas/AttackPath"
+
+    RiskListResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RiskItem"
+
+    # ---- Mitigation ----
+    MitigationRiskLink:
+      type: object
+      required: [riskItemId, severity, finalScore]
+      properties:
+        riskItemId:
+          type: string
+        severity:
+          $ref: "#/components/schemas/RiskSeverity"
+        finalScore:
+          type: number
+          format: float
+
+    Mitigation:
+      type: object
+      required: [id, runId, controlType, description]
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        title:
+          type: ["string", "null"]
+        controlType:
+          type: string
+          description: 'Type of control, e.g. "preventive", "detective", "corrective"'
+        description:
+          type: string
+        estimatedEffort:
+          type: ["string", "null"]
+        expectedRiskReduction:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        validationSteps:
+          type: object
+          additionalProperties: true
+        riskLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/MitigationRiskLink"
+          description: Risk items this mitigation addresses
+
+    MitigationListResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Mitigation"
+
+    # ---- Export ----
+    Report:
+      type: object
+      required: [id, runId, format, status, generatedAt]
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        format:
+          $ref: "#/components/schemas/ReportFormat"
+        status:
+          $ref: "#/components/schemas/ReportStatus"
+        errorMessage:
+          type: ["string", "null"]
+        generatedAt:
+          type: string
+          format: date-time
+        downloadUrl:
+          type: string
+          format: uri
+          description: Available once status is `completed`
+
+    CreateExportRequest:
+      type: object
+      required: [format]
+      properties:
+        format:
+          $ref: "#/components/schemas/ReportFormat"
+
+    ExportResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: "#/components/schemas/Report"
+
+    ExportListResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Report"
