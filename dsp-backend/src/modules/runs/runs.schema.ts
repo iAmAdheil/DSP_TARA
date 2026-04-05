@@ -5,7 +5,6 @@ export const createRunParamsSchema = z.object({
 });
 
 export const createRunBodySchema = z.object({
-  initiatedBy: z.string().min(1),
   configSnapshot: z.record(z.unknown()).optional(),
   artifacts: z.array(z.object({
     type: z.literal("text"),
@@ -15,4 +14,8 @@ export const createRunBodySchema = z.object({
 
 export const getRunParamsSchema = z.object({
   runId: z.string().min(1),
+});
+
+export const listRunsParamsSchema = z.object({
+  projectId: z.string().min(1),
 });

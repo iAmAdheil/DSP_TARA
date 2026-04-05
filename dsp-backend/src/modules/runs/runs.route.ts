@@ -5,5 +5,7 @@ const controller = new RunsController();
 
 export function registerRunsRoutes(app: FastifyInstance) {
   app.get("/runs/:runId", controller.getRun.bind(controller));
+  app.get("/runs/:runId/software-instances", controller.getSoftwareInstances.bind(controller));
   app.post("/projects/:projectId/runs", controller.createRun.bind(controller));
+  app.get("/projects/:projectId/runs", controller.listRunsByProject.bind(controller));
 }

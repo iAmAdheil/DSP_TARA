@@ -35,6 +35,8 @@ interface PathHop {
   edgeProtocol: string | null;
   crossesTrustBoundary: boolean;
   cvesAtHop: string[];
+  edgeReasoning: string | null;
+  edgeMitigation: string | null;
 }
 
 interface CandidatePath {
@@ -49,11 +51,19 @@ interface CandidatePath {
 
 // ── LLM evaluation types ────────────────────────────────────────────
 
+interface HopEvaluation {
+  hopIndex: number;
+  edgeReasoning: string;
+  edgeMitigation: string;
+}
+
 interface PathEvaluation {
   pathIndex: number;
   plausible: boolean;
   feasibilityScore: number;
   reasoning: string;
+  initialAccessDescription: string;
+  hopEvaluations: HopEvaluation[];
 }
 
 interface EvalBatchResponse {
@@ -72,8 +82,21 @@ const EVAL_SCHEMA = {
           plausible: { type: SchemaType.BOOLEAN },
           feasibilityScore: { type: SchemaType.NUMBER },
           reasoning: { type: SchemaType.STRING },
+          initialAccessDescription: { type: SchemaType.STRING },
+          hopEvaluations: {
+            type: SchemaType.ARRAY,
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                hopIndex:        { type: SchemaType.NUMBER },
+                edgeReasoning:   { type: SchemaType.STRING },
+                edgeMitigation:  { type: SchemaType.STRING },
+              },
+              required: ["hopIndex", "edgeReasoning", "edgeMitigation"],
+            },
+          },
         },
-        required: ["pathIndex", "plausible", "feasibilityScore", "reasoning"],
+        required: ["pathIndex", "plausible", "feasibilityScore", "reasoning", "initialAccessDescription", "hopEvaluations"],
       },
     },
   },
@@ -89,7 +112,16 @@ For each path:
 - Provide clear reasoning for your assessment
 - Consider: protocol weaknesses, trust boundary strength, CVE exploitability at each hop, defense-in-depth
 
-Be conservative — only mark paths as plausible if there is a credible exploit chain.`;
+Be conservative — only mark paths as plausible if there is a credible exploit chain.
+
+For each plausible path also provide:
+- initialAccessDescription: one or two sentences explaining how the attacker gains initial
+  access to the entry node (the specific vulnerability, exposed interface, or weakness exploited).
+- hopEvaluations: for each hop after the first (hop 2, 3, ...), provide:
+    - edgeReasoning: why movement from the previous node to this one is possible
+      (protocol weakness, missing authentication, known CVE, trust assumption, etc.)
+    - edgeMitigation: the most effective single control to block or detect this traversal
+      (be specific — name the mechanism, standard, or patch, not generic advice)`;
 
 /**
  * Attack Path Construction worker (Step 4).
@@ -124,18 +156,22 @@ export const attackPathsWorker = new Worker(
 
       // ── Build adjacency graph ───────────────────────────────────────
 
-      // Determine which assets are behind trust boundaries
-      const assetTrustZone = new Map<string, string>();
+      // Build a set of asset-ID pairs that cross at least one trust boundary
+      const assetNameToIdMap = new Map(assets.map((a) => [a.name, a.id]));
+      const crossingPairs = new Set<string>();
+
       for (const tb of trustBoundaries) {
         const meta = tb.metadata as { crossingInterfaceNames?: string[] } | null;
-        // Assets connected via crossing interfaces are "inside" the boundary
-        for (const iface of interfaces) {
-          if (meta?.crossingInterfaceNames?.includes(iface.name)) {
-            const ifaceMeta = iface.metadata as { endpointAssetNames?: string[] } | null;
-            for (const assetName of ifaceMeta?.endpointAssetNames ?? []) {
-              const asset = assets.find((a) => a.name === assetName);
-              if (asset) assetTrustZone.set(asset.id, tb.name);
-            }
+        for (const ifaceName of meta?.crossingInterfaceNames ?? []) {
+          const iface = interfaces.find((i) => i.name === ifaceName);
+          if (!iface) continue;
+          const ifaceMeta = iface.metadata as { endpointAssetNames?: string[] } | null;
+          const endpointIds = (ifaceMeta?.endpointAssetNames ?? [])
+            .map((name) => assetNameToIdMap.get(name))
+            .filter((id): id is string => id !== undefined);
+          if (endpointIds.length >= 2) {
+            crossingPairs.add(`${endpointIds[0]}:${endpointIds[1]}`);
+            crossingPairs.add(`${endpointIds[1]}:${endpointIds[0]}`);
           }
         }
       }
@@ -166,7 +202,7 @@ export const attackPathsWorker = new Worker(
           node: {
             assetId: asset.id,
             assetType: asset.kind,
-            trustZone: assetTrustZone.get(asset.id) ?? "default",
+            trustZone: "default",
             criticalityTags: meta?.subsystemTag ? [meta.subsystemTag] : [],
             softwareInstances: (swByAsset.get(asset.id) ?? []).map((sw) => ({
               id: sw.id,
@@ -189,7 +225,7 @@ export const attackPathsWorker = new Worker(
         const targetEntry = graph.get(df.targetId);
         if (!sourceEntry || !targetEntry) continue;
 
-        const crossesBoundary = assetTrustZone.get(df.sourceId) !== assetTrustZone.get(df.targetId);
+        const crossesBoundary = crossingPairs.has(`${df.sourceId}:${df.targetId}`);
 
         // Forward edge
         sourceEntry.edges.push({
@@ -242,6 +278,8 @@ export const attackPathsWorker = new Worker(
               edgeProtocol: null,
               crossesTrustBoundary: false,
               cvesAtHop: (cvesByAsset.get(startId) ?? []).map((c) => c.cveIdentifier),
+              edgeReasoning: null,
+              edgeMitigation: null,
             }],
           }];
 
@@ -265,12 +303,18 @@ export const attackPathsWorker = new Worker(
                 edgeProtocol: edge.protocol,
                 crossesTrustBoundary: edge.crossesTrustBoundary,
                 cvesAtHop: (cvesByAsset.get(edge.targetAssetId) ?? []).map((c) => c.cveIdentifier),
+                edgeReasoning: null,
+                edgeMitigation: null,
               };
               const newHops = [...current.hops, newHop];
 
               // If target is high-value, record this path
               if (highValueAssetIds.has(edge.targetAssetId) && edge.targetAssetId !== startId) {
-                const tbCrossings = newHops.filter((h) => h.crossesTrustBoundary).length;
+                const tbCrossings = newHops.reduce((count, hop, idx) => {
+                  if (idx === 0) return count;
+                  const prevHop = newHops[idx - 1];
+                  return crossingPairs.has(`${prevHop.assetId}:${hop.assetId}`) ? count + 1 : count;
+                }, 0);
                 const allCvss = newHops.flatMap((h) =>
                   (cvesByAsset.get(h.assetId) ?? []).map((c) => c.cvssScore ?? 0)
                 );
@@ -296,7 +340,14 @@ export const attackPathsWorker = new Worker(
 
       // ── LLM plausibility evaluation ─────────────────────────────────
 
-      const evaluatedPaths: Array<CandidatePath & { feasibilityScore: number; reasoning: string }> = [];
+      const evaluatedPaths: Array<
+        CandidatePath & {
+          hops: PathHop[];
+          feasibilityScore: number;
+          reasoning: string;
+          initialAccessDescription: string | null;
+        }
+      > = [];
 
       if (candidatePaths.length > 0) {
         const systemContext = run.project.systemContext ?? "";
@@ -326,11 +377,23 @@ export const attackPathsWorker = new Worker(
             const path = batch[evaluation.pathIndex];
             if (!path) continue;
             if (!evaluation.plausible) continue;
+            if (evaluation.feasibilityScore <= 0.7) continue;
+
+            const enrichedHops: PathHop[] = path.hops.map((hop) => {
+              const hopEval = evaluation.hopEvaluations?.find((h) => h.hopIndex === hop.hop);
+              return {
+                ...hop,
+                edgeReasoning: hopEval?.edgeReasoning ?? null,
+                edgeMitigation: hopEval?.edgeMitigation ?? null,
+              };
+            });
 
             evaluatedPaths.push({
               ...path,
+              hops: enrichedHops,
               feasibilityScore: Math.max(0, Math.min(1, evaluation.feasibilityScore)),
               reasoning: evaluation.reasoning,
+              initialAccessDescription: evaluation.initialAccessDescription ?? null,
             });
           }
         }
@@ -340,7 +403,6 @@ export const attackPathsWorker = new Worker(
 
       for (const path of evaluatedPaths) {
         // Impact score from target asset criticality
-        const targetNode = graph.get(path.targetAssetId);
         const hasSafetyFunction = safetyFunctions.some((sf) => sf.assetId === path.targetAssetId);
         const impactScore = hasSafetyFunction ? 0.9 : 0.5;
         const overallPathRisk = path.feasibilityScore * impactScore;
@@ -355,6 +417,7 @@ export const attackPathsWorker = new Worker(
             impactScore,
             overallPathRisk,
             reasoning: path.reasoning,
+            initialAccessDescription: path.initialAccessDescription,
             trustBoundaryCrossings: path.trustBoundaryCrossings,
             evidenceRefs: {
               threatId: path.threatId,

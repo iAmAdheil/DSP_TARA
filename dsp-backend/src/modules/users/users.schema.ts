@@ -9,3 +9,7 @@ export const createUserSchema = z.object({
 export const getUserParamsSchema = z.object({
   userId: z.string().min(1),
 });
+
+export const setActiveProjectSchema = z.object({
+  projectId: z.string().min(1).nullable(),
+});

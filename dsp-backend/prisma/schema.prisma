@@ -66,15 +66,18 @@ enum ReportFormat {
 // ─── User ───────────────────────────────────────────────────────────
 
 model User {
-  id          String   @id @default(cuid())
-  name        String
-  email       String   @unique
-  role        UserRole @default(analyst)
-  createdAt   DateTime @default(now()) @map("created_at")
-  lastActiveAt DateTime @default(now()) @map("last_active_at")
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  passwordHash    String   @map("password_hash")
+  role            UserRole @default(analyst)
+  createdAt       DateTime @default(now()) @map("created_at")
+  lastActiveAt    DateTime @default(now()) @map("last_active_at")
+  activeProjectId String?  @map("active_project_id")
 
-  projects Project[]
-  runs     Run[]
+  projects      Project[] @relation("UserProjects")
+  activeProject Project?  @relation("UserActiveProject", fields: [activeProjectId], references: [id], onDelete: SetNull)
+  runs          Run[]
 
   @@map("users")
 }
@@ -90,8 +93,9 @@ model Project {
   createdBy      String        @map("created_by")
   createdAt      DateTime      @default(now()) @map("created_at")
 
-  creator User  @relation(fields: [createdBy], references: [id])
-  runs    Run[]
+  creator     User   @relation("UserProjects", fields: [createdBy], references: [id])
+  activeUsers User[] @relation("UserActiveProject")
+  runs        Run[]
 
   @@map("projects")
 }
@@ -327,6 +331,7 @@ model AttackPath {
   impactScore             Float  @map("impact_score")
   overallPathRisk         Float  @map("overall_path_risk")
   reasoning               String?
+  initialAccessDescription String? @map("initial_access_description")
   trustBoundaryCrossings  Int    @default(0) @map("trust_boundary_crossings")
   evidenceRefs            Json?  @map("evidence_refs") // threat + CVE IDs used
 

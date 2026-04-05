@@ -14,6 +14,13 @@ export class ProjectsService {
     });
   }
 
+  async getProjectsByUser(userId: string) {
+    return prisma.project.findMany({
+      where: { createdBy: userId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   async getProjectById(projectId: string) {
     return prisma.project.findUnique({
       where: { id: projectId },

@@ -4,6 +4,7 @@ import { UsersController } from "./users.controller.js";
 const controller = new UsersController();
 
 export function registerUsersRoutes(app: FastifyInstance) {
-  app.route({ method: "POST", url: "/users", handler: controller.createUser.bind(controller) });
+  // POST /users removed — use POST /auth/sign-up instead
+  app.patch("/users/me/active-project", controller.setActiveProject.bind(controller));
   app.get("/users/:userId", controller.getUser.bind(controller));
 }

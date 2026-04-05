@@ -1,16 +1,93 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useStore } from '../store';
-import { Bug, Search, Filter, AlertTriangle, ExternalLink } from 'lucide-react';
-import mockCVEs from '../mock-data/cves.json';
+import { useState, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Bug, Search, ExternalLink, Loader2 } from 'lucide-react';
+import { useCves } from '../hooks/useCves';
+import { useSoftwareInstances } from '../hooks/useSoftwareInstances';
+import type { CveMatch } from '../types';
 import clsx from 'clsx';
 
-export function CVEMatching() {
-  const { activeRunId } = useStore();
-  const navigate = useNavigate();
-  const [selectedCVE, setSelectedCVE] = useState<any>(null);
+type ActiveView = 'recent' | 'dangerous';
 
-  if (!activeRunId) {
+function deriveSeverity(cvssScore: number): { label: string; tag: string } {
+  if (cvssScore >= 9.0) return { label: 'Critical', tag: 'tag-critical' };
+  if (cvssScore >= 7.0) return { label: 'High',     tag: 'tag-high' };
+  if (cvssScore >= 4.0) return { label: 'Medium',   tag: 'tag-medium' };
+  return                        { label: 'Low',      tag: 'tag-low' };
+}
+
+function cvssColour(score: number): string {
+  if (score >= 9.0) return 'text-[#b42318]'; // Critical — red
+  if (score >= 7.0) return 'text-[#d14343]'; // High — orange-red
+  if (score >= 4.0) return 'text-[#c27a10]'; // Medium — amber
+  return 'text-[#2e7d32]';                   // Low — green
+}
+
+function deriveComputedSeverity(score: number): string {
+  if (score >= 90) return 'text-[#b42318]';
+  if (score >= 70) return 'text-[#d14343]';
+  if (score >= 40) return 'text-[#c27a10]';
+  return 'text-[#2e7d32]';
+}
+
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export function CVEMatching() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const runId = searchParams.get('runId');
+
+  const [selectedCVE, setSelectedCVE] = useState<CveMatch | null>(null);
+  const [search, setSearch] = useState('');
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<ActiveView>('recent');
+
+  const { data: cves, isLoading: cvesLoading } = useCves(runId);
+  const { data: instances, isLoading: instancesLoading } = useSoftwareInstances(runId);
+
+  const isLoading = cvesLoading || instancesLoading;
+
+  // Default to first instance when data loads
+  const effectiveInstanceId = selectedInstanceId ?? instances?.[0]?.id ?? null;
+
+  // CVEs for the selected instance — computed before early returns so hooks stay unconditional
+  const instanceCves = useMemo(
+    () => (cves ?? []).filter((c) => c.matchedSoftwareInstance?.id === effectiveInstanceId),
+    [cves, effectiveInstanceId]
+  );
+
+  // Most Recent: sort by publishedDate desc, top 50, secondary sort by matchScore desc
+  const recentCves = useMemo(() =>
+    [...instanceCves]
+      .sort((a, b) => new Date(b.publishedDate ?? 0).getTime() - new Date(a.publishedDate ?? 0).getTime())
+      .slice(0, 50)
+      .sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0)),
+    [instanceCves]
+  );
+
+  // Most Dangerous: sort by cvssScore desc, top 50, secondary sort by matchScore desc
+  const dangerousCves = useMemo(() =>
+    [...instanceCves]
+      .sort((a, b) => (b.cvssScore ?? 0) - (a.cvssScore ?? 0))
+      .slice(0, 50)
+      .sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0)),
+    [instanceCves]
+  );
+
+  function handleInstanceChange(id: string) {
+    setSelectedInstanceId(id);
+    setSelectedCVE(null);
+    setActiveView('recent');
+  }
+
+  function handleViewChange(view: ActiveView) {
+    setActiveView(view);
+    setSelectedCVE(null);
+  }
+
+  if (!runId) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-center">
         <div className="w-[72px] h-[72px] rounded-[20px] bg-danger-bg flex items-center justify-center mb-[24px]">
@@ -25,145 +102,250 @@ export function CVEMatching() {
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <Loader2 className="w-[28px] h-[28px] text-accent-500 animate-spin" />
+      </div>
+    );
+  }
+
+  const allVisibleCves = activeView === 'recent' ? recentCves : dangerousCves;
+
+  // Search filters within the active view only
+  const visibleCves = allVisibleCves.filter((c) =>
+    !search ||
+    c.cveIdentifier.toLowerCase().includes(search.toLowerCase()) ||
+    (c.description ?? '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedInstance = (instances ?? []).find((i) => i.id === effectiveInstanceId);
+  const instanceLabel = selectedInstance
+    ? `${selectedInstance.name}${selectedInstance.version ? ` ${selectedInstance.version}` : ''}`
+    : '';
+
   return (
     <div className="flex flex-col h-[calc(100vh-140px)]">
       <header className="mb-[24px] flex items-center justify-between">
         <div>
-           <h2 className="text-[20px] font-bold text-text-primary mb-[4px] tracking-tight">CVE Matching</h2>
-           <p className="text-[13px] text-text-secondary">Found {mockCVEs.length} vulnerabilities relating to inferred component context.</p>
+          <h2 className="text-[20px] font-bold text-text-primary mb-[4px] tracking-tight">CVE Matching</h2>
+          <p className="text-[13px] text-text-secondary">Found {cves?.length ?? 0} vulnerabilities relating to inferred component context.</p>
         </div>
         <div className="flex items-center gap-[12px]">
+          {(instances ?? []).length > 0 && (
+            <select
+              value={effectiveInstanceId ?? ''}
+              onChange={(e) => handleInstanceChange(e.target.value)}
+              className="input-base w-[220px]"
+            >
+              {(instances ?? []).map((inst) => (
+                <option key={inst.id} value={inst.id}>
+                  {inst.name}{inst.version ? ` ${inst.version}` : ''}
+                </option>
+              ))}
+            </select>
+          )}
           <div className="relative">
-             <Search className="w-[14px] h-[14px] absolute left-[12px] top-[10px] text-text-muted" />
-             <input type="text" placeholder="Search by ID or component..." className="input-base pl-[32px] w-[240px]" />
+            <Search className="w-[14px] h-[14px] absolute left-[12px] top-[10px] text-text-muted" />
+            <input
+              type="text"
+              placeholder="Search by ID or description..."
+              className="input-base pl-[32px] w-[240px]"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
-          <button className="btn-secondary btn-md">
-            <Filter className="w-[14px] h-[14px] mr-[6px]" />
-            Filters
-          </button>
         </div>
       </header>
 
       <div className="flex flex-1 gap-[20px] min-h-0">
+        {/* CVE list panel */}
         <div className="flex-1 card-panel flex flex-col p-0 overflow-hidden shadow-sm">
-          <div className="bg-surface-1 py-[8px] px-[16px] border-b border-border-subtle flex gap-[8px]">
-            <span className="filter-chip-selected filter-chip">All Matches</span>
-            <span className="filter-chip hover:bg-surface-2 cursor-pointer">Exact Matches</span>
-            <span className="filter-chip hover:bg-surface-2 cursor-pointer">Near Matches</span>
-            <span className="filter-chip hover:bg-surface-2 cursor-pointer">High Severity</span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-[16px] space-y-[12px]">
-            {mockCVEs.map(cve => (
-              <div 
-                key={cve.cve_id} 
-                onClick={() => setSelectedCVE(cve)}
-                className={clsx(
-                  "border border-border-default rounded-[8px] p-[16px] cursor-pointer transition-all hover:-translate-y-px hover:shadow-sm flex gap-[16px]",
-                  selectedCVE?.cve_id === cve.cve_id ? "ring-2 ring-accent-500 bg-accent-50/30" : "bg-white"
-                )}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-[8px] mb-[8px]">
-                    <h4 className="text-[14px] font-bold text-text-primary font-mono">{cve.cve_id}</h4>
-                    {cve.match_tier === 'Exact' ? (
-                      <span className="tag-medium bg-success-bg text-success-fg">Exact Match</span>
-                    ) : (
-                      <span className="tag-medium bg-warning-bg text-warning-fg flex items-center gap-1">
-                        {cve.match_tier} Match <AlertTriangle className="w-[12px] h-[12px]" />
-                      </span>
-                    )}
-                    {cve.severity === 'Critical' && <span className="tag-critical">Critical</span>}
-                    {cve.severity === 'High' && <span className="tag-high">High</span>}
-                    {cve.severity === 'Medium' && <span className="tag-medium">Medium</span>}
-                  </div>
-                  
-                  <div className="flex items-center gap-[16px] text-[13px] text-text-secondary">
-                    <span><strong>Component:</strong> {cve.component}</span>
-                    <span><strong>Subsystem:</strong> {cve.subsystem}</span>
-                  </div>
-                  
-                  <p className="mt-[12px] text-[13px] text-text-primary leading-relaxed truncate max-w-[80%]">
-                    {cve.why_relevant}
-                  </p>
-                </div>
-
-                <div className="flex flex-col justify-center items-end text-right border-l border-border-subtle pl-[20px] min-w-[100px]">
-                  <span className="text-[11px] font-semibold text-text-muted uppercase">CVSS Base</span>
-                  <span className={clsx(
-                    "text-[24px] font-bold tracking-tight",
-                    cve.cvss_base >= 9.0 ? "text-[#b42318]" : 
-                    cve.cvss_base >= 7.0 ? "text-[#d14343]" : "text-[#c27a10]"
-                  )}>{cve.cvss_base}</span>
-                </div>
+          <div className="flex-1 overflow-y-auto p-[16px]">
+            {instanceCves.length === 0 ? (
+              <div className="flex items-center justify-center h-[200px] text-[13px] text-text-muted">
+                {instanceLabel ? `No CVEs found for ${instanceLabel} in the last 3 years.` : 'No CVEs found for this component.'}
               </div>
-            ))}
+            ) : (
+              <>
+                {/* Segmented toggle */}
+                <div className="flex items-center bg-surface-2 rounded-[8px] p-[3px] gap-[2px] mb-[16px]">
+                  {(['recent', 'dangerous'] as const).map((view) => (
+                    <button
+                      key={view}
+                      onClick={() => handleViewChange(view)}
+                      className={clsx(
+                        'px-[12px] py-[5px] rounded-[6px] text-[13px] font-medium transition-colors',
+                        activeView === view
+                          ? 'bg-white text-text-primary shadow-sm'
+                          : 'text-text-secondary hover:text-text-primary'
+                      )}
+                    >
+                      {view === 'recent' ? 'Most Recent' : 'Most Dangerous'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Count label */}
+                <p className="text-[13px] text-text-secondary mb-[12px]">
+                  {visibleCves.length} {activeView === 'recent' ? 'recent' : 'highest severity'} CVEs · sorted by system relevance
+                </p>
+
+                {/* CVE cards */}
+                <div className="space-y-[12px]">
+                  {visibleCves.length > 0 ? visibleCves.map((cve) => (
+                    <CveCard
+                      key={cve.id}
+                      cve={cve}
+                      selected={selectedCVE?.id === cve.id}
+                      onSelect={setSelectedCVE}
+                    />
+                  )) : (
+                    <div className="flex items-center justify-center h-[120px] text-[13px] text-text-muted">
+                      No CVEs in this view for {instanceLabel}.
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
+        {/* Sidebar */}
         {selectedCVE && (
-          <div className="w-[400px] card-panel flex flex-col p-0 shadow-sm sticky top-0 overflow-hidden h-full">
-            <div className="p-[20px] border-b border-border-subtle bg-surface-1">
-              <h3 className="text-[16px] font-bold text-text-primary font-mono mb-[4px]">{selectedCVE.cve_id}</h3>
-              <a href="#" className="text-[12px] font-medium text-info-fg hover:underline flex items-center gap-1">
-                View in NVD <ExternalLink className="w-[12px] h-[12px]" />
-              </a>
+          <CveSidebar cve={selectedCVE} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── CVE Card ─────────────────────────────────────────────────────────────────
+
+interface CveCardProps {
+  cve: CveMatch;
+  selected: boolean;
+  onSelect: (cve: CveMatch) => void;
+}
+
+function CveCard({ cve, selected, onSelect }: CveCardProps) {
+  const score = cve.cvssScore ?? 0;
+  const { label: sevLabel, tag: sevTag } = deriveSeverity(score);
+  const computedScore = Math.round((cve.matchScore ?? 0) * 100);
+  const swName = cve.matchedSoftwareInstance?.name;
+
+  return (
+    <div
+      onClick={() => onSelect(cve)}
+      className={clsx(
+        'border border-border-default rounded-[8px] p-[16px] cursor-pointer transition-all hover:-translate-y-px hover:shadow-sm flex gap-[16px]',
+        selected ? 'ring-2 ring-accent-500 bg-accent-50/30' : 'bg-white'
+      )}
+    >
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-[8px] mb-[6px] flex-wrap">
+          <h4 className="text-[14px] font-bold text-text-primary font-mono">{cve.cveIdentifier}</h4>
+          <span className={sevTag}>{sevLabel}</span>
+          <span className="text-[11px] font-semibold text-text-muted">
+            Score {computedScore}
+          </span>
+        </div>
+        {swName && (
+          <p className="text-[11px] text-text-muted mb-[4px]">{swName}</p>
+        )}
+        <p className="text-[12px] text-text-secondary">
+          {formatDate(cve.publishedDate)}
+        </p>
+      </div>
+
+      <div className="flex flex-col justify-center items-end text-right border-l border-border-subtle pl-[20px] min-w-[100px]">
+        <span className="text-[11px] font-semibold text-text-muted uppercase">CVSS Base</span>
+        <span className={clsx('text-[24px] font-bold tracking-tight', cvssColour(score))}>{score}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── CVE Sidebar ───────────────────────────────────────────────────────────────
+
+function CveSidebar({ cve }: { cve: CveMatch }) {
+  const score = cve.cvssScore ?? 0;
+  const { label: cvssLabel } = deriveSeverity(score);
+  const computedScore = Math.round((cve.matchScore ?? 0) * 100);
+  const swLabel = cve.matchedSoftwareInstance
+    ? `${cve.matchedSoftwareInstance.name}${cve.matchedSoftwareInstance.version ? ` ${cve.matchedSoftwareInstance.version}` : ''}`
+    : '—';
+
+  return (
+    <div className="w-[400px] card-panel flex flex-col p-0 shadow-sm sticky top-0 overflow-hidden h-full">
+      {/* Header */}
+      <div className="p-[20px] border-b border-border-subtle bg-surface-1">
+        <h3 className="text-[16px] font-bold text-text-primary font-mono mb-[4px]">{cve.cveIdentifier}</h3>
+        <a
+          href={`https://nvd.nist.gov/vuln/detail/${cve.cveIdentifier}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[12px] font-medium text-info-fg hover:underline flex items-center gap-1"
+        >
+          View in NVD <ExternalLink className="w-[12px] h-[12px]" />
+        </a>
+      </div>
+
+      <div className="p-[20px] flex-1 overflow-y-auto space-y-[24px]">
+        {/* Description */}
+        <div>
+          <h4 className="text-[12px] font-semibold text-text-muted uppercase mb-2">Description</h4>
+          <p className="text-[13px] text-text-primary leading-[22px] p-[16px] bg-[#f8fafb] border border-border-subtle rounded-[8px]">
+            {cve.description ?? '—'}
+          </p>
+        </div>
+
+        {/* Why Relevant */}
+        <div>
+          <h4 className="text-[12px] font-semibold text-text-muted uppercase mb-2">Relevance to This System</h4>
+          {cve.whyRelevant ? (
+            <p className="text-[13px] text-text-primary leading-[22px] p-[16px] bg-[#f8fafb] border border-border-subtle rounded-[8px]">
+              {cve.whyRelevant}
+            </p>
+          ) : (
+            <p className="text-[13px] text-text-muted italic p-[16px] bg-[#f8fafb] border border-border-subtle rounded-[8px]">
+              Relevance analysis not available for this run.
+            </p>
+          )}
+        </div>
+
+        {/* Scores */}
+        <div>
+          <div className="grid grid-cols-2 gap-[12px] mb-[16px]">
+            <div className="border border-border-subtle rounded-[8px] p-[16px] text-center">
+              <p className="text-[11px] font-semibold text-text-muted uppercase mb-[8px]">CVSS Base Score</p>
+              <p className={clsx('text-[28px] font-bold tracking-tight', cvssColour(score))}>{score || '—'}</p>
+              <p className="text-[12px] text-text-secondary mt-[4px]">{cvssLabel}</p>
             </div>
-
-            <div className="p-[20px] flex-1 overflow-y-auto space-y-[24px]">
-              {selectedCVE.match_tier !== 'Exact' && (
-                <div className="bg-warning-bg border-l-4 border-warning-fg p-[16px] rounded-r-[8px]">
-                  <div className="flex items-center gap-[8px] mb-[8px]">
-                    <AlertTriangle className="w-[16px] h-[16px] text-warning-fg" />
-                    <h4 className="text-[13px] font-bold text-warning-fg uppercase tracking-wide">Contextual Inference</h4>
-                  </div>
-                  <p className="text-[13px] text-warning-fg leading-relaxed">
-                    This CVE is inferred based on subsystem product family matching. The exact software version was unlisted in your ingestion input. Proceed with manual verification.
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <h4 className="text-[12px] font-semibold text-text-muted uppercase mb-2">Relevance Rationale</h4>
-                <p className="text-[13px] text-text-primary leading-[22px] p-[16px] bg-[#f8fafb] border border-border-subtle rounded-[8px]">
-                  {selectedCVE.why_relevant}
-                </p>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-[12px] font-semibold text-text-muted uppercase">Matching Metrics</h4>
-                </div>
-                <div className="border border-border-subtle rounded-[8px] divide-y divide-border-subtle">
-                  <div className="flex justify-between p-[12px] text-[13px]">
-                    <span className="text-text-secondary">Subsystem</span>
-                    <span className="font-semibold text-text-primary">{selectedCVE.subsystem}</span>
-                  </div>
-                  <div className="flex justify-between p-[12px] text-[13px]">
-                    <span className="text-text-secondary">Component Match</span>
-                    <span className="font-semibold text-text-primary">{selectedCVE.component}</span>
-                  </div>
-                  <div className="flex justify-between p-[12px] text-[13px]">
-                    <span className="text-text-secondary">Publish Date</span>
-                    <span className="font-semibold text-text-primary">{selectedCVE.published_date}</span>
-                  </div>
-                  <div className="flex justify-between p-[12px] text-[13px] bg-surface-1">
-                    <span className="text-text-secondary font-medium uppercase">CVSS 3.1</span>
-                    <span className={clsx(
-                      "font-bold",
-                      selectedCVE.cvss_base >= 9.0 ? "text-[#b42318]" : 
-                      selectedCVE.cvss_base >= 7.0 ? "text-[#d14343]" : "text-[#c27a10]"
-                    )}>{selectedCVE.cvss_base} / 10.0</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-[16px]">
-                <button className="btn-secondary w-full h-[40px]">Create Risk Item for Triage</button>
-              </div>
+            <div className="border border-border-subtle rounded-[8px] p-[16px] text-center">
+              <p className="text-[11px] font-semibold text-text-muted uppercase mb-[8px]">System Risk Score</p>
+              <p className={clsx('text-[28px] font-bold tracking-tight', deriveComputedSeverity(computedScore))}>{computedScore}</p>
+              <p className="text-[12px] text-text-secondary mt-[4px]">out of 100</p>
             </div>
           </div>
-        )}
+
+          {/* Metadata rows */}
+          <div className="border border-border-subtle rounded-[8px] divide-y divide-border-subtle">
+            <div className="flex justify-between p-[12px] text-[13px]">
+              <span className="text-text-secondary">Published</span>
+              <span className="font-semibold text-text-primary">{formatDate(cve.publishedDate)}</span>
+            </div>
+            <div className="flex justify-between p-[12px] text-[13px]">
+              <span className="text-text-secondary">Component</span>
+              <span className="font-semibold text-text-primary">{swLabel}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Action */}
+        <div className="pt-[4px]">
+          <button className="btn-secondary w-full h-[40px]">Create Risk Item for Triage</button>
+        </div>
       </div>
     </div>
   );

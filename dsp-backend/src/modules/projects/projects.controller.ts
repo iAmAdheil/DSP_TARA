@@ -6,12 +6,17 @@ import { ok, fail } from "../../utils/http-response.js";
 const service = new ProjectsService();
 
 export class ProjectsController {
+  async listProjects(request: FastifyRequest, reply: FastifyReply) {
+    const projects = await service.getProjectsByUser(request.user.sub);
+    return reply.send(ok(projects));
+  }
+
   async createProject(request: FastifyRequest, reply: FastifyReply) {
     const parsed = createProjectSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send(fail("VALIDATION_ERROR", parsed.error.message));
     }
-    const project = await service.createProject(parsed.data);
+    const project = await service.createProject({ ...parsed.data, createdBy: request.user.sub });
     return reply.status(201).send(ok(project));
   }
 
@@ -23,6 +28,9 @@ export class ProjectsController {
     const project = await service.getProjectById(params.data.projectId);
     if (!project) {
       return reply.status(404).send(fail("NOT_FOUND", "Project not found"));
+    }
+    if (project.createdBy !== request.user.sub) {
+      return reply.status(403).send(fail("FORBIDDEN", "Access denied"));
     }
     return reply.send(ok(project));
   }
@@ -36,7 +44,14 @@ export class ProjectsController {
     if (!body.success) {
       return reply.status(400).send(fail("VALIDATION_ERROR", body.error.message));
     }
-    const project = await service.updateProject(params.data.projectId, body.data);
-    return reply.send(ok(project));
+    const project = await service.getProjectById(params.data.projectId);
+    if (!project) {
+      return reply.status(404).send(fail("NOT_FOUND", "Project not found"));
+    }
+    if (project.createdBy !== request.user.sub) {
+      return reply.status(403).send(fail("FORBIDDEN", "Access denied"));
+    }
+    const updated = await service.updateProject(params.data.projectId, body.data);
+    return reply.send(ok(updated));
   }
 }

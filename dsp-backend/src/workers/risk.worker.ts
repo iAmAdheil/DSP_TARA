@@ -90,6 +90,16 @@ export const riskWorker = new Worker(
 
       // ── Score threats ─────────────────────────────────────────────
 
+      function operationalImpactToExploitability(op: string | undefined): number {
+        switch (op) {
+          case "complete_loss":    return 0.9;
+          case "loss_of_function": return 0.7;
+          case "degraded":         return 0.5;
+          case "negligible":       return 0.2;
+          default:                 return 0.5; // fallback for any legacy free-text values
+        }
+      }
+
       for (const threat of threats) {
         const likelihood = threat.confidence;
 
@@ -97,7 +107,8 @@ export const riskWorker = new Worker(
         const impactScores = threat.impactedAssets.map((ia) => assetCriticality(ia.assetId));
         const impact = impactScores.length > 0 ? Math.max(...impactScores) : 0.5;
 
-        const exploitability = 0.5; // default heuristic for threats
+        const impactBreakdown = threat.impactBreakdown as { operationalImpact?: string } | null;
+        const exploitability = operationalImpactToExploitability(impactBreakdown?.operationalImpact);
 
         // Exposure: 1.0 if entry point is internet-facing, subtract 0.2 per trust boundary
         const entryFacing = threat.entryPoints.some((ep) => isInternetFacing(ep.assetId));
@@ -112,7 +123,7 @@ export const riskWorker = new Worker(
         const breakdown = buildBreakdown(likelihood, impact, exploitability, exposureModifier, finalScore, {
           likelihood: "threat.confidence",
           impact: "max criticality of impacted assets",
-          exploitability: "default heuristic (0.5)",
+          exploitability: `operationalImpact=${impactBreakdown?.operationalImpact ?? "unknown"}`,
           exposureModifier: entryFacing ? "entry point internet-facing" : "entry point internal",
         });
 

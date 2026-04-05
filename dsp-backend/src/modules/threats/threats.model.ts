@@ -1,9 +1,14 @@
 export interface ThreatResponse {
   id: string;
   runId: string;
+  title: string | null;
   category: string;
+  framework: string;
   description: string;
   confidence: number;
-  entryPoints: Array<{ assetId: string; asset: { id: string; name: string; kind: string } }>;
-  impactedAssets: Array<{ assetId: string; asset: { id: string; name: string; kind: string } }>;
+  severity: "low" | "medium" | "high" | "extreme";
+  impactBreakdown: unknown;
+  evidenceRefs: unknown;
+  entryPoints: Array<{ id: string; name: string; kind: string }>;
+  impactedAssets: Array<{ id: string; name: string; kind: string }>;
 }

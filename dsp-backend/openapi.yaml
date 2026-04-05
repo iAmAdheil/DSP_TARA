@@ -9,12 +9,16 @@ info:
 
     ## Pipeline Overview
     1. **Ingest** — parse uploaded artifacts into a canonical system model
-    2. **Threats** — STRIDE-based threat identification
-    3. **CVE Matching** — match software instances to known vulnerabilities
-    4. **Attack Paths** — construct feasible attack paths across trust boundaries
-    5. **Risk Scoring** — score each finding by likelihood, impact, and exploitability
+    2. **Threats** — STRIDE + HEAVENS threat identification
+    3. **CVE Matching** — match software instances to known vulnerabilities (3-tier: exact CPE → virtual CPE → keyword)
+    4. **Attack Paths** — construct feasible attack paths across trust boundaries via BFS + LLM plausibility
+    5. **Risk Scoring** — score each finding by likelihood, impact, exploitability, and exposure
     6. **Mitigations** — generate control recommendations per risk item
     7. **Export** — produce reports in JSON, Markdown, or PDF
+
+    ## Authentication
+    All protected endpoints require a valid JWT sent as an **httpOnly cookie** named `token`.
+    Obtain a token via `POST /auth/sign-up` or `POST /auth/sign-in`. Tokens expire after **7 days**.
 
     ## Response Envelope
     All responses follow a consistent envelope:
@@ -27,17 +31,19 @@ info:
     Run creation (`POST /projects/:projectId/runs`) and export creation
     (`POST /runs/:runId/exports`) return **202 Accepted** — the resource is created
     immediately but processing is queued. Poll the resource to track status.
-  version: 1.0.0
+  version: 1.1.0
   contact:
     name: DSP Team
 
 servers:
-  - url: http://localhost:3001
+  - url: http://localhost:4000
     description: Local development
 
 tags:
   - name: Health
     description: Service health checks
+  - name: Auth
+    description: Authentication — sign-up, sign-in, profile
   - name: Users
     description: User management
   - name: Projects
@@ -82,27 +88,36 @@ paths:
                   db: connected
 
   # ---------------------------------------------------------------------------
-  # Users
+  # Auth
   # ---------------------------------------------------------------------------
-  /users:
+  /auth/sign-up:
     post:
-      operationId: createUser
-      summary: Create a user
+      operationId: signUp
+      summary: Create a new account
+      description: |
+        Registers a new user and returns a signed JWT token set as an httpOnly
+        cookie (`token`). The token expires in 7 days.
       tags:
-        - Users
+        - Auth
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateUserRequest"
+              $ref: "#/components/schemas/SignUpRequest"
             example:
               name: Alice Chen
               email: alice@example.com
+              password: StrongPass123!
               role: analyst
       responses:
         "201":
-          description: User created
+          description: Account created — JWT cookie set
+          headers:
+            Set-Cookie:
+              description: "httpOnly JWT cookie: token=<jwt>; Path=/; HttpOnly; SameSite=Lax"
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -110,7 +125,132 @@ paths:
         "400":
           $ref: "#/components/responses/ValidationError"
         "409":
-          $ref: "#/components/responses/Conflict"
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                ok: false
+                error:
+                  code: EMAIL_TAKEN
+                  message: Email is already in use
+
+  /auth/sign-in:
+    post:
+      operationId: signIn
+      summary: Sign in to an existing account
+      description: |
+        Authenticates with email + password and sets a fresh JWT cookie.
+        The token expires in 7 days.
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignInRequest"
+            example:
+              email: alice@example.com
+              password: StrongPass123!
+      responses:
+        "200":
+          description: Authenticated — JWT cookie set
+          headers:
+            Set-Cookie:
+              description: "httpOnly JWT cookie: token=<jwt>; Path=/; HttpOnly; SameSite=Lax"
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                ok: false
+                error:
+                  code: INVALID_CREDENTIALS
+                  message: Invalid email or password
+
+  /auth/profile:
+    get:
+      operationId: getProfile
+      summary: Get the authenticated user's profile
+      description: Returns the full profile of the currently authenticated user.
+      tags:
+        - Auth
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Profile returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------------------
+  # Users
+  # ---------------------------------------------------------------------------
+  /users/me/active-project:
+    patch:
+      operationId: setActiveProject
+      summary: Set or clear the active project
+      description: |
+        Stores the user's currently active project ID for UI state persistence.
+        Pass `projectId: null` to clear the active project.
+        The project must be owned by the requesting user.
+      tags:
+        - Users
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetActiveProjectRequest"
+            examples:
+              set:
+                summary: Set active project
+                value:
+                  projectId: cma1b2c3d4e5f6g7h8i9j
+              clear:
+                summary: Clear active project
+                value:
+                  projectId: null
+      responses:
+        "200":
+          description: Active project updated — returns updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Project not found or not owned by requesting user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                ok: false
+                error:
+                  code: NOT_FOUND
+                  message: Project not found or not owned by you
 
   /users/{userId}:
     get:
@@ -118,6 +258,8 @@ paths:
       summary: Get a user by ID
       tags:
         - Users
+      security:
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/UserId"
       responses:
@@ -127,6 +269,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -134,11 +278,32 @@ paths:
   # Projects
   # ---------------------------------------------------------------------------
   /projects:
+    get:
+      operationId: listProjects
+      summary: List the authenticated user's projects
+      description: Returns all projects created by the authenticated user, sorted by creation date descending.
+      tags:
+        - Projects
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Project list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
     post:
       operationId: createProject
       summary: Create a project
+      description: Creates a new project owned by the authenticated user.
       tags:
         - Projects
+      security:
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -148,7 +313,6 @@ paths:
             example:
               name: Vehicle Gateway Analysis
               domain: automotive
-              createdBy: cma1b2c3d4e5f6g7h8i9j
               systemContext: Central gateway ECU bridging OBD-II, CAN bus, and Ethernet backbone.
       responses:
         "201":
@@ -159,16 +323,20 @@ paths:
                 $ref: "#/components/schemas/ProjectResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
-        "404":
-          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /projects/{projectId}:
     get:
       operationId: getProject
       summary: Get a project by ID
-      description: Returns project details including creator info and the last 10 runs.
+      description: |
+        Returns full project details including creator info and the last 10 runs.
+        Only the project owner can access this endpoint.
       tags:
         - Projects
+      security:
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/ProjectId"
       responses:
@@ -178,14 +346,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProjectResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
     patch:
       operationId: updateProject
       summary: Update project system context
+      description: |
+        Updates the project's system context description.
+        Only the project owner can update.
       tags:
         - Projects
+      security:
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/ProjectId"
       requestBody:
@@ -205,6 +382,10 @@ paths:
                 $ref: "#/components/schemas/ProjectResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -212,6 +393,32 @@ paths:
   # Runs
   # ---------------------------------------------------------------------------
   /projects/{projectId}/runs:
+    get:
+      operationId: listRunsByProject
+      summary: List runs for a project
+      description: |
+        Returns all runs for the project, sorted by `startedAt` descending.
+        Only the project owner can list runs.
+      tags:
+        - Runs
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Run list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
     post:
       operationId: createRun
       summary: Start an analysis run
@@ -223,6 +430,8 @@ paths:
         during the ingestion step to build the canonical system model.
       tags:
         - Runs
+      security:
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/ProjectId"
       requestBody:
@@ -232,7 +441,6 @@ paths:
             schema:
               $ref: "#/components/schemas/CreateRunRequest"
             example:
-              initiatedBy: cma1b2c3d4e5f6g7h8i9j
               artifacts:
                 - type: text
                   content: "System: Central Gateway ECU\nAssets: OBD port, CAN bus, Ethernet..."
@@ -245,6 +453,8 @@ paths:
                 $ref: "#/components/schemas/RunResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -252,9 +462,11 @@ paths:
     get:
       operationId: getRun
       summary: Get a run by ID
-      description: Returns run details including current status, step progress, and project reference.
+      description: Returns run details including current status and per-step progress.
       tags:
         - Runs
+      security:
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/RunId"
       responses:
@@ -264,6 +476,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RunResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -275,10 +489,13 @@ paths:
       operationId: getThreats
       summary: List threats for a run
       description: |
-        Returns all STRIDE-based threats identified during the run's threat analysis step.
-        Each threat includes entry point assets and impacted assets.
+        Returns all STRIDE and HEAVENS threats identified during the run's threat analysis step.
+        Each threat includes entry point assets, impacted assets, and impact breakdown with
+        typed enum values for safety/financial/operational impact.
       tags:
         - Threats
+      security:
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/RunId"
       responses:
@@ -288,6 +505,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ThreatListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Software Instances
+  # ---------------------------------------------------------------------------
+  /runs/{runId}/software-instances:
+    get:
+      operationId: getSoftwareInstances
+      summary: List software instances for a run
+      description: |
+        Returns all software instances extracted during ingestion for this run.
+        Independent of CVE matching — components with 0 CVEs are included.
+      tags:
+        - Runs
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Software instance list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SoftwareInstanceListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -299,10 +546,15 @@ paths:
       operationId: getCves
       summary: List CVE matches for a run
       description: |
-        Returns all CVE matches found by correlating software instances in the system model
-        against known vulnerabilities. Includes matched asset details.
+        Returns CVE matches for each software instance in the run.
+        Two sets are fetched per instance from NVD: 50 most recently published
+        and 50 highest CVSS, merged and deduplicated (max 100 per instance).
+        Results are ordered by matchScore descending — a system-aware score
+        combining CVSS severity and asset exposure within the system model.
       tags:
         - CVEs
+      security:
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/RunId"
       responses:
@@ -312,6 +564,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CveListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -323,10 +577,12 @@ paths:
       operationId: getAttackPaths
       summary: List attack paths for a run
       description: |
-        Returns all attack paths constructed during analysis, sorted by `overallPathRisk`
-        descending. Each path includes feasibility/impact scores and target asset details.
+        Returns attack paths with feasibilityScore > 0.7, sorted by overallPathRisk descending.
+        Paths are built via BFS from threat entry points and evaluated for plausibility by an LLM.
       tags:
         - Attack Paths
+      security:
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/RunId"
       responses:
@@ -336,6 +592,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AttackPathListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -348,10 +606,12 @@ paths:
       summary: List risk items for a run
       description: |
         Returns all scored risk items, sorted by `finalScore` descending.
-        Each item references its source (threat, CVE match, or attack path) and
-        includes the full factor breakdown.
+        Formula: `0.3×likelihood + 0.3×impact + 0.25×exploitability + 0.15×exposureModifier`.
+        Each item references its source (threat, CVE match, or attack path).
       tags:
         - Risks
+      security:
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/RunId"
       responses:
@@ -361,6 +621,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RiskListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -373,9 +635,11 @@ paths:
       summary: List mitigations for a run
       description: |
         Returns all mitigation controls generated for the run, each linked to the
-        risk items it addresses (with severity and final score included).
+        risk items it addresses.
       tags:
         - Mitigations
+      security:
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/RunId"
       responses:
@@ -385,12 +649,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MitigationListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
 
   # ---------------------------------------------------------------------------
   # Exports
   # ---------------------------------------------------------------------------
+  /runs/{runId}/assets:
+    get:
+      operationId: getAssets
+      summary: Get the canonical asset model for a run
+      description: |
+        Returns all assets, data flows, interfaces, trust boundaries, software instances,
+        and safety functions extracted during the ingestion step.
+      tags:
+        - Runs
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Asset model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /runs/{runId}/exports:
     post:
       operationId: createExport
@@ -402,6 +693,8 @@ paths:
         **Prerequisite**: The run must be in `completed` status — returns 409 otherwise.
       tags:
         - Exports
+      security:
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/RunId"
       requestBody:
@@ -421,6 +714,8 @@ paths:
                 $ref: "#/components/schemas/ExportResponse"
         "400":
           $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -441,6 +736,8 @@ paths:
       description: Returns all report exports for the run, sorted by `generatedAt` descending.
       tags:
         - Exports
+      security:
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/RunId"
       responses:
@@ -450,6 +747,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExportListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -457,6 +756,18 @@ paths:
 # Components
 # =============================================================================
 components:
+  # ---------------------------------------------------------------------------
+  # Security Schemes
+  # ---------------------------------------------------------------------------
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+      description: |
+        JWT stored in an httpOnly cookie named `token`. Obtain via
+        `POST /auth/sign-up` or `POST /auth/sign-in`. Expires after 7 days.
+
   # ---------------------------------------------------------------------------
   # Parameters
   # ---------------------------------------------------------------------------
@@ -503,6 +814,30 @@ components:
             error:
               code: VALIDATION_ERROR
               message: "Invalid request: email must be a valid email address"
+
+    Unauthorized:
+      description: Authentication required or token invalid/expired
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            ok: false
+            error:
+              code: UNAUTHORIZED
+              message: Authentication required
+
+    Forbidden:
+      description: Authenticated but not allowed to access this resource
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            ok: false
+            error:
+              code: FORBIDDEN
+              message: Access denied
 
     NotFound:
       description: Resource not found
@@ -576,7 +911,11 @@ components:
     CveMatchTier:
       type: string
       enum: [exact, near, contextual]
-      description: Confidence tier of the CVE match
+      description: |
+        Confidence tier of the CVE match:
+        - `exact` — matched by full versioned CPE
+        - `near` — matched by base CPE via virtualMatchString
+        - `contextual` — matched by keyword search
 
     RiskSourceType:
       type: string
@@ -593,6 +932,27 @@ components:
     ReportStatus:
       type: string
       enum: [queued, running, completed, failed]
+
+    SafetyImpact:
+      type: string
+      enum: [negligible, marginal, critical, catastrophic]
+      description: Safety impact on vehicle occupants or system users
+
+    FinancialImpact:
+      type: string
+      enum: [negligible, marginal, significant, severe]
+      description: Financial damage to OEM, operator, or owner
+
+    OperationalImpact:
+      type: string
+      enum: [negligible, degraded, loss_of_function, complete_loss]
+      description: |
+        Operational disruption of system functions. Also used to derive
+        threat exploitability in risk scoring:
+        - `complete_loss` → 0.9
+        - `loss_of_function` → 0.7
+        - `degraded` → 0.5
+        - `negligible` → 0.2
 
     # ---- Envelope Schemas ----
     ErrorEnvelope:
@@ -612,10 +972,6 @@ components:
             message:
               type: string
               description: Human-readable error description
-            details:
-              type: object
-              additionalProperties: true
-              description: Optional additional error context
 
     # ---- Health ----
     HealthResponse:
@@ -636,10 +992,40 @@ components:
               type: string
               enum: [connected, disconnected]
 
+    # ---- Auth ----
+    SignUpRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          description: Minimum 8 characters
+        role:
+          $ref: "#/components/schemas/UserRole"
+
+    SignInRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+
     # ---- User ----
     User:
       type: object
-      required: [id, name, email, role, createdAt]
+      required: [id, name, email, role, createdAt, lastActiveAt]
       properties:
         id:
           type: string
@@ -653,6 +1039,9 @@ components:
           format: email
         role:
           $ref: "#/components/schemas/UserRole"
+        activeProjectId:
+          type: ["string", "null"]
+          description: CUID of the user's currently active project; null if not set
         createdAt:
           type: string
           format: date-time
@@ -660,19 +1049,13 @@ components:
           type: string
           format: date-time
 
-    CreateUserRequest:
+    SetActiveProjectRequest:
       type: object
-      required: [name, email]
+      required: [projectId]
       properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 255
-        email:
-          type: string
-          format: email
-        role:
-          $ref: "#/components/schemas/UserRole"
+        projectId:
+          type: ["string", "null"]
+          description: CUID of the project to activate, or null to clear
 
     UserResponse:
       type: object
@@ -701,22 +1084,40 @@ components:
           type: ["string", "null"]
         createdBy:
           type: string
-          description: User ID of the project creator
+          description: User ID of the project owner
         createdAt:
           type: string
           format: date-time
         creator:
-          $ref: "#/components/schemas/User"
+          type: object
           description: Populated when fetching a project by ID
+          required: [id, name]
+          properties:
+            id:
+              type: string
+            name:
+              type: string
         runs:
           type: array
+          description: Last 10 runs — populated when fetching by ID
           items:
-            $ref: "#/components/schemas/Run"
-          description: Last 10 runs (populated when fetching by ID)
+            type: object
+            required: [id, status, startedAt]
+            properties:
+              id:
+                type: string
+              status:
+                $ref: "#/components/schemas/RunStatus"
+              startedAt:
+                type: string
+                format: date-time
+              completedAt:
+                type: ["string", "null"]
+                format: date-time
 
     CreateProjectRequest:
       type: object
-      required: [name, domain, createdBy]
+      required: [name, domain]
       properties:
         name:
           type: string
@@ -724,11 +1125,8 @@ components:
           maxLength: 255
         domain:
           $ref: "#/components/schemas/ProjectDomain"
-        createdBy:
-          type: string
-          description: CUID of the user creating the project
         systemContext:
-          type: ["string", "null"]
+          type: string
           description: Free-text description of the system under analysis
 
     UpdateProjectRequest:
@@ -749,6 +1147,18 @@ components:
           enum: [true]
         data:
           $ref: "#/components/schemas/Project"
+
+    ProjectListResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
 
     # ---- Run ----
     RunSteps:
@@ -792,14 +1202,14 @@ components:
           type: string
           format: date-time
         completedAt:
-          type: string
+          type: ["string", "null"]
           format: date-time
         modelVersion:
           type: ["string", "null"]
         retrievalIndexVersion:
           type: ["string", "null"]
         configSnapshot:
-          type: object
+          type: ["object", "null"]
           additionalProperties: true
 
     InputArtifact:
@@ -810,15 +1220,13 @@ components:
           $ref: "#/components/schemas/ArtifactType"
         content:
           type: string
+          minLength: 1
           description: Raw text content of the artifact
 
     CreateRunRequest:
       type: object
-      required: [initiatedBy, artifacts]
+      required: [artifacts]
       properties:
-        initiatedBy:
-          type: string
-          description: CUID of the user initiating the run
         artifacts:
           type: array
           minItems: 1
@@ -839,6 +1247,18 @@ components:
         data:
           $ref: "#/components/schemas/Run"
 
+    RunListResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Run"
+
     # ---- Threat ----
     Asset:
       type: object
@@ -852,12 +1272,46 @@ components:
           type: string
           description: 'Asset category, e.g. "ECU", "sensor", "gateway", "cloud-service"'
         metadata:
-          type: object
+          type: ["object", "null"]
           additionalProperties: true
+
+    ImpactBreakdown:
+      type: object
+      required: [safetyImpact, financialImpact, operationalImpact]
+      description: |
+        Typed impact assessment generated by the LLM with structured output constraints.
+        All three fields use controlled enum vocabularies.
+      properties:
+        safetyImpact:
+          $ref: "#/components/schemas/SafetyImpact"
+        financialImpact:
+          $ref: "#/components/schemas/FinancialImpact"
+        operationalImpact:
+          $ref: "#/components/schemas/OperationalImpact"
+
+    ThreatEvidenceRefs:
+      type: object
+      description: References to assets and the trust boundary crossing that generated this threat
+      properties:
+        assetIds:
+          type: array
+          items:
+            type: string
+          description: Resolved asset IDs supporting this threat
+        crossingId:
+          type: string
+          description: Trust boundary crossing ID that produced this threat
+
+    ThreatSeverity:
+      type: string
+      enum: [low, medium, high, extreme]
+      description: |
+        Derived severity level based on the worst impact dimension across safety,
+        financial, and operational axes. Computed from impactBreakdown at response time.
 
     Threat:
       type: object
-      required: [id, runId, category, framework, description, confidence]
+      required: [id, runId, category, framework, description, confidence, severity]
       properties:
         id:
           type: string
@@ -867,9 +1321,10 @@ components:
           type: ["string", "null"]
         category:
           type: string
-          description: STRIDE category (e.g. Spoofing, Tampering, Repudiation, etc.)
+          description: 'STRIDE category (e.g. "Spoofing", "Tampering") or HEAVENS category'
         framework:
           type: string
+          enum: [stride, heavens]
           default: stride
         description:
           type: string
@@ -878,17 +1333,17 @@ components:
           format: float
           minimum: 0
           maximum: 1
+        severity:
+          $ref: "#/components/schemas/ThreatSeverity"
         impactBreakdown:
-          type: object
-          additionalProperties: true
+          $ref: "#/components/schemas/ImpactBreakdown"
         evidenceRefs:
-          type: object
-          additionalProperties: true
+          $ref: "#/components/schemas/ThreatEvidenceRefs"
         entryPoints:
           type: array
           items:
             $ref: "#/components/schemas/Asset"
-          description: Assets serving as attack entry points
+          description: Assets serving as attack entry points (resolved via direct name, interface name, or trust boundary name)
         impactedAssets:
           type: array
           items:
@@ -928,21 +1383,36 @@ components:
           format: float
           minimum: 0
           maximum: 1
+          description: |
+            System-aware relevance score. Formula: 0.5 × (cvssScore/10) + 0.5 × exposureModifier.
+            exposureModifier reflects how reachable the affected asset is within this system's
+            architecture (trust boundary crossings, external data flows).
         cvssScore:
-          type: number
+          type: ["number", "null"]
           format: float
           minimum: 0
           maximum: 10
         affectedVersions:
-          type: object
-          additionalProperties: true
+          type: ["array", "null"]
+          items:
+            type: string
+          description: CPE criteria strings from NVD configuration nodes
         whyRelevant:
           type: ["string", "null"]
         publishedDate:
-          type: string
+          type: ["string", "null"]
           format: date-time
         matchedSoftwareInstanceId:
           type: ["string", "null"]
+        matchedSoftwareInstance:
+          type: ["object", "null"]
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            version:
+              type: ["string", "null"]
         matchedAssets:
           type: array
           items:
@@ -962,6 +1432,47 @@ components:
             $ref: "#/components/schemas/CveMatch"
 
     # ---- Attack Path ----
+    PathHop:
+      type: object
+      required: [hop, assetId, assetName, crossesTrustBoundary, cvesAtHop]
+      description: A single hop in an attack path
+      properties:
+        hop:
+          type: integer
+          minimum: 1
+          description: 1-based hop index
+        assetId:
+          type: string
+        assetName:
+          type: string
+        edgeProtocol:
+          type: ["string", "null"]
+          description: Communication protocol used on this edge
+        crossesTrustBoundary:
+          type: boolean
+        cvesAtHop:
+          type: array
+          items:
+            type: string
+          description: CVE identifiers present at this asset
+        edgeReasoning:
+          type: ["string", "null"]
+          description: Why the attacker can traverse from the previous node to this one
+        edgeMitigation:
+          type: ["string", "null"]
+          description: The most effective control to block this traversal
+
+    AttackPathEvidenceRefs:
+      type: object
+      description: Source threat and CVEs that support this attack path
+      properties:
+        threatId:
+          type: string
+        cveIds:
+          type: array
+          items:
+            type: string
+
     AttackPath:
       type: object
       required: [id, runId, startSurface, targetAssetId, steps, feasibilityScore, impactScore, overallPathRisk, trustBoundaryCrossings]
@@ -972,41 +1483,51 @@ components:
           type: string
         startSurface:
           type: string
-          description: Description of the attack's starting surface
+          description: Asset ID of the attack entry point
         targetAssetId:
           type: string
         steps:
           type: array
           items:
-            type: object
-            additionalProperties: true
-          description: Ordered list of attack steps
+            $ref: "#/components/schemas/PathHop"
+          description: Ordered list of hops from entry point to target
         feasibilityScore:
           type: number
           format: float
           minimum: 0
           maximum: 1
+          description: LLM-assigned plausibility score
         impactScore:
           type: number
           format: float
           minimum: 0
           maximum: 1
+          description: 0.9 if target has a safety function, 0.5 otherwise
         overallPathRisk:
           type: number
           format: float
           minimum: 0
           maximum: 1
+          description: feasibilityScore × impactScore
         reasoning:
           type: ["string", "null"]
+          description: LLM reasoning for plausibility assessment
         trustBoundaryCrossings:
           type: integer
           minimum: 0
           default: 0
         evidenceRefs:
-          type: object
-          additionalProperties: true
+          $ref: "#/components/schemas/AttackPathEvidenceRefs"
         targetAsset:
           $ref: "#/components/schemas/Asset"
+        initialAccessDescription:
+          type: ["string", "null"]
+          description: How the attacker gains initial access at the entry node
+        startAsset:
+          anyOf:
+            - $ref: "#/components/schemas/Asset"
+            - type: "null"
+          description: Resolved asset object for the startSurface ID
 
     AttackPathListResponse:
       type: object
@@ -1021,6 +1542,41 @@ components:
             $ref: "#/components/schemas/AttackPath"
 
     # ---- Risk ----
+    RiskFactor:
+      type: object
+      required: [name, value, weight, contribution, source]
+      properties:
+        name:
+          type: string
+          enum: [likelihood, impact, exploitability, exposureModifier]
+        value:
+          type: number
+          format: float
+        weight:
+          type: number
+          format: float
+        contribution:
+          type: number
+          format: float
+        source:
+          type: string
+          description: Human-readable description of how this factor was derived
+
+    RiskFactorBreakdown:
+      type: object
+      required: [factors, finalScore, formula]
+      properties:
+        factors:
+          type: array
+          items:
+            $ref: "#/components/schemas/RiskFactor"
+        finalScore:
+          type: number
+          format: float
+        formula:
+          type: string
+          example: "0.3×likelihood + 0.3×impact + 0.25×exploitability + 0.15×exposureModifier"
+
     RiskItem:
       type: object
       required: [id, runId, sourceType, likelihood, impact, exploitability, exposureModifier, finalScore, severity]
@@ -1052,9 +1608,15 @@ components:
           format: float
           minimum: 0
           maximum: 1
+          description: |
+            For threats: derived from `operationalImpact` (complete_loss→0.9, loss_of_function→0.7, degraded→0.5, negligible→0.2).
+            For CVEs: normalised CVSS score.
+            For attack paths: max CVSS across hops (or 0.3 if no CVEs).
         exposureModifier:
           type: number
           format: float
+          minimum: 0
+          maximum: 1
         finalScore:
           type: number
           format: float
@@ -1063,8 +1625,7 @@ components:
         severity:
           $ref: "#/components/schemas/RiskSeverity"
         factorBreakdown:
-          type: object
-          additionalProperties: true
+          $ref: "#/components/schemas/RiskFactorBreakdown"
         threat:
           $ref: "#/components/schemas/Threat"
         cveMatch:
@@ -1115,13 +1676,14 @@ components:
         estimatedEffort:
           type: ["string", "null"]
         expectedRiskReduction:
-          type: number
+          type: ["number", "null"]
           format: float
           minimum: 0
           maximum: 1
         validationSteps:
-          type: object
-          additionalProperties: true
+          type: ["array", "null"]
+          items:
+            type: string
         riskLinks:
           type: array
           items:
@@ -1139,6 +1701,169 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Mitigation"
+
+    # ---- Assets ----
+    SoftwareInstance:
+      type: object
+      required: [id, name, assetId, assetName, assetKind]
+      properties:
+        id:
+          type: string
+        assetId:
+          type: string
+        assetName:
+          type: string
+        assetKind:
+          type: string
+        name:
+          type: string
+        version:
+          type: ["string", "null"]
+        cpe:
+          type: ["string", "null"]
+
+    SoftwareInstanceListResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SoftwareInstance"
+
+    SafetyFunction:
+      type: object
+      required: [id, assetId, name]
+      properties:
+        id:
+          type: string
+        assetId:
+          type: string
+        name:
+          type: string
+        asilLevel:
+          type: ["string", "null"]
+
+    DataFlow:
+      type: object
+      required: [id, runId, sourceId, targetId]
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        sourceId:
+          type: string
+        targetId:
+          type: string
+        protocol:
+          type: ["string", "null"]
+        dataClassification:
+          type: ["string", "null"]
+
+    Interface:
+      type: object
+      required: [id, runId, name]
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        name:
+          type: string
+        protocol:
+          type: ["string", "null"]
+
+    TrustBoundary:
+      type: object
+      required: [id, runId, name]
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        name:
+          type: string
+        metadata:
+          type: ["object", "null"]
+          properties:
+            boundaryType:
+              type: string
+            memberAssetIds:
+              type: array
+              items:
+                type: string
+            crossingInterfaceNames:
+              type: array
+              items:
+                type: string
+
+    AssetDetail:
+      type: object
+      required: [id, runId, name, kind, softwareInstances, safetyFunctions]
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          description: 'Asset category, e.g. "ECU", "sensor", "gateway"'
+        metadata:
+          type: ["object", "null"]
+          additionalProperties: true
+        softwareInstances:
+          type: array
+          items:
+            $ref: "#/components/schemas/SoftwareInstance"
+        safetyFunctions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SafetyFunction"
+
+    AssetsPayload:
+      type: object
+      required: [assets, dataFlows, interfaces, trustBoundaries, softwareInstances, safetyFunctions]
+      properties:
+        assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetDetail"
+        dataFlows:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataFlow"
+        interfaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/Interface"
+        trustBoundaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrustBoundary"
+        softwareInstances:
+          type: array
+          items:
+            $ref: "#/components/schemas/SoftwareInstance"
+        safetyFunctions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SafetyFunction"
+
+    AssetsResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: "#/components/schemas/AssetsPayload"
 
     # ---- Export ----
     Report:
@@ -1159,7 +1884,7 @@ components:
           type: string
           format: date-time
         downloadUrl:
-          type: string
+          type: ["string", "null"]
           format: uri
           description: Available once status is `completed`
 

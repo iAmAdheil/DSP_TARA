@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { Shell } from './components/layout/Shell';
+import { AuthGuard } from './components/AuthGuard';
 import { AuthPage } from './pages/AuthPage';
 import { ProjectWorkspace } from './pages/ProjectWorkspace';
 import { SystemIngestion } from './pages/SystemIngestion';
@@ -18,8 +19,14 @@ function App() {
   return (
     <Routes>
       <Route path="/auth" element={<AuthPage />} />
-      <Route path="/" element={<Shell />}>
-        {/* Module Routes */}
+      <Route
+        path="/"
+        element={
+          <AuthGuard>
+            <Shell />
+          </AuthGuard>
+        }
+      >
         <Route index element={<ProjectWorkspace />} />
         <Route path="ingestion" element={<SystemIngestion />} />
         <Route path="explorer" element={<ModelExplorer />} />

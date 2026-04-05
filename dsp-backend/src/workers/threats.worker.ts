@@ -13,6 +13,38 @@ interface ImpactBreakdown {
   operationalImpact: "negligible" | "degraded" | "loss_of_function" | "complete_loss";
 }
 
+function normalizeSafetyImpact(raw: string): ImpactBreakdown["safetyImpact"] {
+  const v = raw.toLowerCase();
+  if (v.includes("catastrophic") || v.includes("extreme") || v.includes("loss of life") || v.includes("fatality")) return "catastrophic";
+  if (v.includes("critical") || v.includes("severe") || v.includes("high") || v.includes("injur") || v.includes("fatal")) return "critical";
+  if (v.includes("marginal") || v.includes("medium") || v.includes("minor") || v.includes("moderate")) return "marginal";
+  return "negligible";
+}
+
+function normalizeFinancialImpact(raw: string): ImpactBreakdown["financialImpact"] {
+  const v = raw.toLowerCase();
+  if (v.includes("severe") || v.includes("extreme") || v.includes("recall") || v.includes("extensive brand damage")) return "severe";
+  if (v.includes("significant") || v.includes("high") || v.includes("extensive") || v.includes("legal liabilit")) return "significant";
+  if (v.includes("marginal") || v.includes("medium") || v.includes("minor") || v.includes("moderate")) return "marginal";
+  return "negligible";
+}
+
+function normalizeOperationalImpact(raw: string): ImpactBreakdown["operationalImpact"] {
+  const v = raw.toLowerCase();
+  if (v.includes("complete_loss") || v.includes("complete loss") || v.includes("inoperable") || v.includes("unusable") || v.includes("unpredictably")) return "complete_loss";
+  if (v.includes("loss_of_function") || v.includes("loss of function") || v.includes("unsafe") || v.includes("erroneously") || v.includes("critical") || v.includes("high")) return "loss_of_function";
+  if (v.includes("degraded") || v.includes("medium") || v.includes("moderate") || v.includes("reduced")) return "degraded";
+  return "negligible";
+}
+
+function normalizeImpactBreakdown(raw: ImpactBreakdown): ImpactBreakdown {
+  return {
+    safetyImpact: normalizeSafetyImpact(raw.safetyImpact),
+    financialImpact: normalizeFinancialImpact(raw.financialImpact),
+    operationalImpact: normalizeOperationalImpact(raw.operationalImpact),
+  };
+}
+
 interface LLMThreat {
   crossingId: string;
   category: string;
@@ -33,14 +65,48 @@ interface ThreatBatchResponse {
 const IMPACT_BREAKDOWN_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
-    safetyImpact: { type: SchemaType.STRING },
-    financialImpact: { type: SchemaType.STRING },
-    operationalImpact: { type: SchemaType.STRING },
+    safetyImpact: {
+      type: SchemaType.STRING,
+      enum: ["negligible", "marginal", "critical", "catastrophic"],
+    },
+    financialImpact: {
+      type: SchemaType.STRING,
+      enum: ["negligible", "marginal", "significant", "severe"],
+    },
+    operationalImpact: {
+      type: SchemaType.STRING,
+      enum: ["negligible", "degraded", "loss_of_function", "complete_loss"],
+    },
   },
   required: ["safetyImpact", "financialImpact", "operationalImpact"],
 };
 
-const THREAT_SCHEMA = {
+const THREAT_SCHEMA_ITEMS_BASE = {
+  crossingId: { type: SchemaType.STRING },
+  framework: { type: SchemaType.STRING },
+  title: { type: SchemaType.STRING },
+  description: { type: SchemaType.STRING },
+  entryPoints: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+  impactedAssets: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+  confidence: { type: SchemaType.NUMBER },
+  evidenceRefs: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+  impactBreakdown: IMPACT_BREAKDOWN_SCHEMA,
+};
+
+const THREAT_SCHEMA_REQUIRED = [
+  "crossingId",
+  "category",
+  "framework",
+  "title",
+  "description",
+  "entryPoints",
+  "impactedAssets",
+  "confidence",
+  "evidenceRefs",
+  "impactBreakdown",
+];
+
+const STRIDE_THREAT_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
     threats: {
@@ -48,29 +114,33 @@ const THREAT_SCHEMA = {
       items: {
         type: SchemaType.OBJECT,
         properties: {
-          crossingId: { type: SchemaType.STRING },
+          ...THREAT_SCHEMA_ITEMS_BASE,
           category: { type: SchemaType.STRING },
-          framework: { type: SchemaType.STRING },
-          title: { type: SchemaType.STRING },
-          description: { type: SchemaType.STRING },
-          entryPoints: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-          impactedAssets: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-          confidence: { type: SchemaType.NUMBER },
-          evidenceRefs: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-          impactBreakdown: IMPACT_BREAKDOWN_SCHEMA,
         },
-        required: [
-          "crossingId",
-          "category",
-          "framework",
-          "title",
-          "description",
-          "entryPoints",
-          "impactedAssets",
-          "confidence",
-          "evidenceRefs",
-          "impactBreakdown",
-        ],
+        required: THREAT_SCHEMA_REQUIRED,
+      },
+    },
+  },
+  required: ["threats"],
+};
+
+const HEAVENS_CATEGORY_ENUM = ["Safety", "Financial", "Operational", "Privacy", "Environmental", "Hazardous Event"];
+
+const HEAVENS_THREAT_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    threats: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          ...THREAT_SCHEMA_ITEMS_BASE,
+          category: {
+            type: SchemaType.STRING,
+            enum: HEAVENS_CATEGORY_ENUM,
+          },
+        },
+        required: THREAT_SCHEMA_REQUIRED,
       },
     },
   },
@@ -94,35 +164,76 @@ Set framework to "stride" for all threats.`;
 
 const HEAVENS_SYSTEM_PROMPT = `You are a TARA threat analysis engine using the HEAVENS framework for automotive systems.
 
-HEAVENS threat categories focus on automotive-specific concerns:
-- Safety impact on vehicle occupants and road users
-- Financial damage to OEM or vehicle owner
-- Operational disruption of vehicle functions
-- Privacy breach of driver/passenger data
+HEAVENS threat categories — use ONLY these exact values for \`category\`:
+- Safety: Threats that could cause physical harm to vehicle occupants or road users
+- Financial: Threats causing economic damage — ransomware on OTA channels, unauthorized use of paid services, actions that could trigger recalls or warranty claims
+- Operational: Threats causing vehicle malfunction, unavailability, or erratic behavior
+- Privacy: Threats exposing driver/passenger location or personal data
+- Environmental: Threats causing environmental damage (fuel spill, battery fire, etc.)
+- Hazardous Event: Threats triggering hazardous situations not covered by Safety
 
-Only generate HEAVENS threats if the system is clearly automotive-related (vehicles, ECUs, CAN bus, V2X, OBD, ADAS, etc.).
-If the system is NOT automotive, return an empty threats array.
+Generate threats across multiple categories. Do not generate exclusively Safety threats.
+For each trust boundary crossing, consider what financial damage an attacker could cause, not only what physical harm they could cause.
 Set framework to "heavens" for all threats.
 Assign confidence scores (0-1) reflecting automotive-specific risk assessment.`;
 
-/** Resolve asset names through the map, logging any misses. */
+/** Build a case-insensitive lookup wrapper around a map. */
+function makeCaseInsensitiveLookup<T>(map: Map<string, T>): (key: string) => T | undefined {
+  const lower = new Map<string, T>();
+  for (const [k, v] of map.entries()) lower.set(k.toLowerCase(), v);
+  return (key: string) => map.get(key) ?? lower.get(key.toLowerCase());
+}
+
+/** Resolve asset names through direct, interface, and boundary maps, logging any misses. */
 function resolveAssetNames(
   names: string[],
   assetNameToId: Map<string, string>,
+  interfaceNameToAssetIds: Map<string, string[]>,
+  boundaryNameToAssetIds: Map<string, string[]>,
   context: { threatId: string; field: string },
 ): string[] {
+  const assetLookup = makeCaseInsensitiveLookup(assetNameToId);
+  const ifaceLookup = makeCaseInsensitiveLookup(interfaceNameToAssetIds);
+  const boundaryLookup = makeCaseInsensitiveLookup(boundaryNameToAssetIds);
+
   const resolved: string[] = [];
   for (const name of names) {
-    const id = assetNameToId.get(name);
-    if (id) {
-      resolved.push(id);
-    } else {
-      console.warn(
-        `[threats] "${context.field}" name not found in asset map — skipping. threatId=${context.threatId}, name="${name}"`,
-      );
+    const directId = assetLookup(name);
+    if (directId) {
+      resolved.push(directId);
+      continue;
     }
+    const ifaceIds = ifaceLookup(name);
+    if (ifaceIds) {
+      resolved.push(...ifaceIds);
+      continue;
+    }
+    const boundaryIds = boundaryLookup(name);
+    if (boundaryIds) {
+      resolved.push(...boundaryIds);
+      continue;
+    }
+    // Substring fallback — handles LLM abbreviations like "TCU" → "Telematics Control Unit (TCU)"
+    let substringMatch: string | undefined;
+    for (const [assetName, assetId] of assetNameToId.entries()) {
+      const lowerKey = name.toLowerCase();
+      const lowerAsset = assetName.toLowerCase();
+      if (lowerKey.includes(lowerAsset) || lowerAsset.includes(lowerKey)) {
+        substringMatch = assetId;
+        break;
+      }
+    }
+    if (substringMatch) {
+      resolved.push(substringMatch);
+      continue;
+    }
+
+    console.warn(
+      `[threats] "${context.field}" name not found in any map — skipping. threatId=${context.threatId}, name="${name}"`,
+    );
   }
-  return resolved;
+  // Deduplicate — multiple interfaces can resolve to the same asset
+  return [...new Set(resolved)];
 }
 
 /**
@@ -143,11 +254,38 @@ export const threatsWorker = new Worker(
       const trustBoundaries = await prisma.trustBoundary.findMany({ where: { runId } });
       const run = await prisma.run.findUniqueOrThrow({
         where: { id: runId },
-        include: { project: { select: { systemContext: true } } },
+        include: { project: { select: { systemContext: true, domain: true } } },
       });
 
       // Build asset name→id map
       const assetNameToId = new Map(assets.map((a) => [a.name, a.id]));
+
+      // Interface name → set of endpoint asset IDs
+      const interfaceNameToAssetIds = new Map<string, string[]>();
+      for (const iface of interfaces) {
+        const meta = iface.metadata as { endpointAssetNames?: string[] } | null;
+        const endpointNames = meta?.endpointAssetNames ?? [];
+        const resolvedIds = endpointNames
+          .map((name) => assetNameToId.get(name))
+          .filter((id): id is string => id !== undefined);
+        if (resolvedIds.length > 0) {
+          interfaceNameToAssetIds.set(iface.name, resolvedIds);
+        }
+      }
+
+      // Trust boundary name → asset IDs (via crossing interfaces)
+      const boundaryNameToAssetIds = new Map<string, string[]>();
+      for (const tb of trustBoundaries) {
+        const meta = tb.metadata as { crossingInterfaceNames?: string[] } | null;
+        const crossingIfaceNames = meta?.crossingInterfaceNames ?? [];
+        const assetIds = crossingIfaceNames.flatMap(
+          (ifaceName) => interfaceNameToAssetIds.get(ifaceName) ?? []
+        );
+        const unique = [...new Set(assetIds)];
+        if (unique.length > 0) {
+          boundaryNameToAssetIds.set(tb.name, unique);
+        }
+      }
 
       // Exact asset name list for the LLM prompt — the LLM MUST use these verbatim
       const exactAssetNameList = assets.map((a) => a.name).join(", ");
@@ -206,6 +344,11 @@ export const threatsWorker = new Worker(
       // Helper to persist a batch of LLM threats
       async function persistThreats(threats: LLMThreat[], framework: "stride" | "heavens") {
         for (const t of threats) {
+          // Resolve evidenceRefs to asset IDs (D10 — take first match per name; these are informational)
+          const resolvedEvidenceIds = t.evidenceRefs
+            .map((name) => assetNameToId.get(name) ?? interfaceNameToAssetIds.get(name)?.[0])
+            .filter((id): id is string => id !== undefined);
+
           const threat = await prisma.threat.create({
             data: {
               runId,
@@ -214,21 +357,28 @@ export const threatsWorker = new Worker(
               framework,
               description: t.description,
               confidence: Math.max(0, Math.min(1, t.confidence)),
-              impactBreakdown: t.impactBreakdown as unknown as Prisma.InputJsonValue,
-              evidenceRefs: { assetIds: t.evidenceRefs, crossingId: t.crossingId },
+              impactBreakdown: normalizeImpactBreakdown(t.impactBreakdown) as unknown as Prisma.InputJsonValue,
+              evidenceRefs: { assetIds: resolvedEvidenceIds, crossingId: t.crossingId },
             },
           });
 
-          // Link entry points
-          const resolvedEPs = resolveAssetNames(t.entryPoints, assetNameToId, {
+          // Link entry points — use LLM names first, fall back to crossing interface endpoints
+          let resolvedEPs = resolveAssetNames(t.entryPoints, assetNameToId, interfaceNameToAssetIds, boundaryNameToAssetIds, {
             threatId: threat.id,
             field: "entryPoints",
           });
 
-          if (resolvedEPs.length === 0 && t.entryPoints.length > 0) {
-            console.warn(
-              `[threats] All entry points unresolved for threat "${t.title}" (id=${threat.id}) — skipping BFS entry point links`,
-            );
+          if (resolvedEPs.length === 0) {
+            // Derive entry points from the crossing interface (format: "{tbId}:{interfaceName}")
+            const colonIdx = t.crossingId.indexOf(":");
+            if (colonIdx !== -1) {
+              const crossingIfaceName = t.crossingId.substring(colonIdx + 1);
+              const ifaceAssetIds = interfaceNameToAssetIds.get(crossingIfaceName)
+                ?? interfaceNameToAssetIds.get(crossingIfaceName.toLowerCase());
+              if (ifaceAssetIds?.length) {
+                resolvedEPs = ifaceAssetIds;
+              }
+            }
           }
 
           for (const assetId of resolvedEPs) {
@@ -236,7 +386,7 @@ export const threatsWorker = new Worker(
           }
 
           // Link impacted assets
-          const resolvedIAs = resolveAssetNames(t.impactedAssets, assetNameToId, {
+          const resolvedIAs = resolveAssetNames(t.impactedAssets, assetNameToId, interfaceNameToAssetIds, boundaryNameToAssetIds, {
             threatId: threat.id,
             field: "impactedAssets",
           });
@@ -267,14 +417,14 @@ export const threatsWorker = new Worker(
         const result = await geminiStructuredCall<ThreatBatchResponse>({
           systemPrompt: STRIDE_SYSTEM_PROMPT,
           userMessage,
-          responseSchema: THREAT_SCHEMA,
+          responseSchema: STRIDE_THREAT_SCHEMA,
         });
 
         await persistThreats(result.threats, "stride");
       }
 
-      // HEAVENS pass — only if automotive context detected
-      {
+      // HEAVENS pass — only for automotive domain
+      if (run.project.domain === "automotive") {
         const heavensCrossingText = crossings
           .map((c, idx) => `Crossing ${idx + 1} (ID: ${c.id}):\n${c.description}`)
           .join("\n\n");
@@ -284,7 +434,6 @@ export const threatsWorker = new Worker(
           `[CANONICAL MODEL]\n${canonicalContext}`,
           assetNameInstruction,
           `[TRUST BOUNDARY CROSSINGS]\n${heavensCrossingText}`,
-          "Determine if this system is automotive-related. If yes, generate HEAVENS threats. If not, return empty threats array.",
         ]
           .filter(Boolean)
           .join("\n\n");
@@ -292,7 +441,7 @@ export const threatsWorker = new Worker(
         const result = await geminiStructuredCall<ThreatBatchResponse>({
           systemPrompt: HEAVENS_SYSTEM_PROMPT,
           userMessage,
-          responseSchema: THREAT_SCHEMA,
+          responseSchema: HEAVENS_THREAT_SCHEMA,
         });
 
         await persistThreats(result.threats, "heavens");

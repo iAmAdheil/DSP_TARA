@@ -477,3 +477,94 @@
 - Subsystem explorer (2D/3D if present)
 
 If any implemented component diverges from this spec, update this spec first and record the reason in the commit message.
+
+---
+
+## 12) Categorical Color Palette & JS Color Library
+
+### Purpose
+
+Several features require multiple distinct colors assigned dynamically — graph nodes, chart series, category badges — where the set of categories is not known in advance. CSS variables cannot be used directly in JS-based rendering libraries (Cytoscape, chart libs, canvas). This section defines the palette and the utility that must be used everywhere such colors are needed.
+
+### 12.1 Categorical Palette Tokens
+
+```css
+:root {
+  --cat-1: #3b82f6;   /* blue   */
+  --cat-2: #22c55e;   /* green  */
+  --cat-3: #f97316;   /* orange */
+  --cat-4: #a855f7;   /* purple */
+  --cat-5: #0ea5e9;   /* sky    */
+  --cat-6: #ef4444;   /* red    */
+  --cat-7: #eab308;   /* amber  */
+  --cat-8: #14b8a6;   /* teal   */
+  --cat-9: #ec4899;   /* pink   */
+  --cat-10: #84cc16;  /* lime   */
+}
+```
+
+These are the only colors permitted for categorical/multi-series use. Do not introduce one-off colors for graphs, charts, or category tags — extend this list instead (and update `src/lib/colors.ts` to match).
+
+### 12.2 `src/lib/colors.ts` — Required Implementation
+
+This file is the **single source of truth** for all color values consumed in JS contexts. It must be created and kept in sync with the tokens above. It exports:
+
+#### `CATEGORICAL_PALETTE: string[]`
+The 10 hex values above, in order. Index 0 = `--cat-1`, index 9 = `--cat-10`.
+
+#### `getKindColor(kind: string): string`
+Deterministically maps any string to a palette color using a djb2 hash:
+
+```ts
+function djb2(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 33) ^ str.charCodeAt(i);
+  }
+  return Math.abs(hash);
+}
+
+export function getKindColor(kind: string): string {
+  return CATEGORICAL_PALETTE[djb2(kind.toLowerCase()) % CATEGORICAL_PALETTE.length];
+}
+```
+
+- Same kind string always returns the same color
+- Works for any kind string, including ones not known at build time
+- Case-insensitive (normalise to lowercase before hashing)
+
+#### `getKindShape(kind: string): string`
+Maps known kind strings to Cytoscape shape names. Case-insensitive match. Falls back to `'roundrectangle'` for anything unrecognised:
+
+```ts
+const SHAPE_MAP: Record<string, string> = {
+  sensor: 'ellipse',
+  gateway: 'diamond',
+  actuator: 'hexagon',
+};
+
+export function getKindShape(kind: string): string {
+  return SHAPE_MAP[kind.toLowerCase()] ?? 'roundrectangle';
+}
+```
+
+#### Named semantic constants
+Fixed-purpose colors that are never hashed — always the same value:
+
+```ts
+export const colors = {
+  edgeProtocol:       '#0ea5e9',  // cat-5 sky  — protocol edge labels
+  edgeClassification: '#eab308',  // cat-7 amber — data classification labels
+  edgeLine:           '#cfd6de',  // --border-strong — edge lines
+  borderDefault:      '#dfe3e8',  // --border-default
+  borderFocus:        '#24a06b',  // --border-focus
+  surfaceSubtle:      '#f9fafb',  // --bg-surface-1
+} as const;
+```
+
+### 12.3 Usage Rules
+
+- **Always** use `getKindColor` for any UI that assigns colors to open-ended category strings
+- **Never** hardcode a hex value for a categorical color outside this file
+- When adding a new feature that needs categorical colors, import from `src/lib/colors.ts` — do not define a local palette
+- If 10 colors are insufficient, add more `--cat-N` tokens here first, then extend `CATEGORICAL_PALETTE` in `colors.ts`

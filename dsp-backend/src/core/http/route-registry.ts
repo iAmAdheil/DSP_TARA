@@ -1,13 +1,13 @@
-import { readFileSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
-import { parse as parseYaml } from "yaml";
 import type { FastifyInstance } from "fastify";
 
 import { registerHealthRoutes } from "../../modules/health/index.js";
+import { registerAuthRoutes, AuthController } from "../../modules/auth/index.js";
 import { registerUsersRoutes } from "../../modules/users/index.js";
+
+const authController = new AuthController();
 import { registerProjectsRoutes } from "../../modules/projects/index.js";
 import { registerRunsRoutes } from "../../modules/runs/index.js";
+import { registerAssetsRoutes } from "../../modules/assets/index.js";
 import { registerIngestionRoutes } from "../../modules/ingestion/index.js";
 import { registerThreatsRoutes } from "../../modules/threats/index.js";
 import { registerCvesRoutes } from "../../modules/cves/index.js";
@@ -16,27 +16,32 @@ import { registerRisksRoutes } from "../../modules/risks/index.js";
 import { registerMitigationsRoutes } from "../../modules/mitigations/index.js";
 import { registerExportsRoutes } from "../../modules/exports/index.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const openapiSpec = parseYaml(
-  readFileSync(resolve(__dirname, "../../../openapi.yaml"), "utf-8")
-);
-
 export function registerRoutes(app: FastifyInstance) {
+  // 1. Unprotected routes
   registerHealthRoutes(app);
-  registerUsersRoutes(app);
-  registerProjectsRoutes(app);
-  registerRunsRoutes(app);
-  registerIngestionRoutes(app);
-  registerThreatsRoutes(app);
-  registerCvesRoutes(app);
-  registerAttackPathsRoutes(app);
-  registerRisksRoutes(app);
-  registerMitigationsRoutes(app);
-  registerExportsRoutes(app);
+  registerAuthRoutes(app);
 
-  // Serve the OpenAPI spec as JSON — point any Swagger UI / Scalar client here
+  // Live OpenAPI spec — populated automatically as routes gain `schema:` options
   app.get("/openapi.json", async (_req, reply) => {
     reply.header("Content-Type", "application/json");
-    return openapiSpec;
+    return app.swagger();
+  });
+
+  // 2. Protected routes — scoped so the auth hook only applies here
+  app.register(async (protectedApp) => {
+    protectedApp.addHook("preHandler", app.authenticate);
+
+    protectedApp.get("/auth/profile", authController.getProfile.bind(authController));
+    registerUsersRoutes(protectedApp);
+    registerProjectsRoutes(protectedApp);
+    registerRunsRoutes(protectedApp);
+    registerAssetsRoutes(protectedApp);
+    registerIngestionRoutes(protectedApp);
+    registerThreatsRoutes(protectedApp);
+    registerCvesRoutes(protectedApp);
+    registerAttackPathsRoutes(protectedApp);
+    registerRisksRoutes(protectedApp);
+    registerMitigationsRoutes(protectedApp);
+    registerExportsRoutes(protectedApp);
   });
 }

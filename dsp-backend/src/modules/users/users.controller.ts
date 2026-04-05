@@ -1,18 +1,21 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { UsersService } from "./users.service.js";
-import { createUserSchema, getUserParamsSchema } from "./users.schema.js";
+import { getUserParamsSchema, setActiveProjectSchema } from "./users.schema.js";
 import { ok, fail } from "../../utils/http-response.js";
 
 const service = new UsersService();
 
 export class UsersController {
-  async createUser(request: FastifyRequest, reply: FastifyReply) {
-    const parsed = createUserSchema.safeParse(request.body);
+  async setActiveProject(request: FastifyRequest, reply: FastifyReply) {
+    const parsed = setActiveProjectSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send(fail("VALIDATION_ERROR", parsed.error.message));
     }
-    const user = await service.createUser(parsed.data);
-    return reply.status(201).send(ok(user));
+    const user = await service.setActiveProject(request.user.sub, parsed.data.projectId);
+    if (!user) {
+      return reply.status(404).send(fail("NOT_FOUND", "Project not found or not owned by you"));
+    }
+    return reply.send(ok(user));
   }
 
   async getUser(request: FastifyRequest, reply: FastifyReply) {

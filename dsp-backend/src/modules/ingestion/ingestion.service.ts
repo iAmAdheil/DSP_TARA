@@ -17,6 +17,7 @@ interface ExtractedGraph {
     name: string;
     boundaryType: string;
     crossingInterfaceNames: string[];
+    memberAssetNames: string[];
   }>;
   softwareInstances: Array<{
     name: string;
@@ -51,7 +52,9 @@ Entity types to extract:
 - Safety Functions: Safety-critical functions tied to specific assets (ASIL levels for automotive)
 
 For CPE candidates, use the format: cpe:2.3:a:vendor:product:version:*:*:*:*:*:*:*
-If you cannot determine the vendor, use * as placeholder.`;
+If you cannot determine the vendor, use * as placeholder.
+
+For each trust boundary, include \`memberAssetNames\`: the list of asset names (using exact names from the assets list) that reside inside this boundary.`;
 
 const EXTRACTION_SCHEMA = {
   type: SchemaType.OBJECT,
@@ -95,8 +98,12 @@ const EXTRACTION_SCHEMA = {
             type: SchemaType.ARRAY,
             items: { type: SchemaType.STRING },
           },
+          memberAssetNames: {
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING },
+          },
         },
-        required: ["name", "boundaryType", "crossingInterfaceNames"],
+        required: ["name", "boundaryType", "crossingInterfaceNames", "memberAssetNames"],
       },
     },
     softwareInstances: {
@@ -204,6 +211,10 @@ export class IngestionService {
 
     // Create trust boundaries
     for (const tb of extracted.trustBoundaries) {
+      const memberAssetIds = tb.memberAssetNames
+        .map((name) => assetNameToId.get(name))
+        .filter((id): id is string => id !== undefined);
+
       await prisma.trustBoundary.create({
         data: {
           runId,
@@ -211,6 +222,7 @@ export class IngestionService {
           metadata: {
             boundaryType: tb.boundaryType,
             crossingInterfaceNames: tb.crossingInterfaceNames,
+            memberAssetIds,
           },
         },
       });

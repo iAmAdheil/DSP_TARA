@@ -1,15 +1,19 @@
 import { prisma } from "../../db/prisma-client.js";
-import type { UserRole } from "@prisma/client";
 
 export class UsersService {
-  async createUser(data: { name: string; email: string; role?: UserRole }) {
-    return prisma.user.create({
-      data: {
-        name: data.name,
-        email: data.email,
-        role: data.role ?? "analyst",
-      },
+  async setActiveProject(userId: string, projectId: string | null) {
+    if (projectId !== null) {
+      const project = await prisma.project.findFirst({
+        where: { id: projectId, createdBy: userId },
+      });
+      if (!project) return null; // not found or not owned
+    }
+
+    const { passwordHash: _ph, ...safe } = await prisma.user.update({
+      where: { id: userId },
+      data: { activeProjectId: projectId },
     });
+    return safe;
   }
 
   async getUserById(userId: string) {

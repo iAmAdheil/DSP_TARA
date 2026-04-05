@@ -42,12 +42,42 @@ export class RunsService {
     return run;
   }
 
+  async getRunsByProjectId(projectId: string, userId: string) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, createdBy: true },
+    });
+
+    if (!project) return { error: "NOT_FOUND" as const };
+    if (project.createdBy !== userId) return { error: "FORBIDDEN" as const };
+
+    const runs = await prisma.run.findMany({
+      where: { projectId },
+      orderBy: { startedAt: "desc" },
+    });
+
+    return { data: runs };
+  }
+
   async getRunById(runId: string) {
     return prisma.run.findUnique({
       where: { id: runId },
       include: {
         project: { select: { id: true, name: true } },
       },
+    });
+  }
+
+  async getSoftwareInstances(runId: string) {
+    return prisma.softwareInstance.findMany({
+      where: { runId },
+      select: {
+        id: true,
+        name: true,
+        version: true,
+        asset: { select: { id: true, name: true, kind: true } },
+      },
+      orderBy: { name: "asc" },
     });
   }
 }

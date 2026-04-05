@@ -1,10 +1,80 @@
 {
   "version": 1,
   "skills": {
+    "code:conventional-commit": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "f1cc178e5d135d5aa357fd706b15be2783294b41442847a1e6ad982093c895aa"
+    },
+    "code:debug": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "b056160d3c2a3f386a815acd84e4a3ba856d09444a568527c522d5bdbab0f6fd"
+    },
+    "code:docs": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "6e02e4d9716ccf661a53f8f2c17f874f07655ff58be04b85b6093982194017b2"
+    },
+    "code:git-worktrees": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "6bda1641e5f6edff1e8182f3b309b3786125f50ffe6e17be6cc9179d689bc707"
+    },
+    "code:perf": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "ed1c88088009608ddd7227553de7b3ff3340541b40e2ad0ef16db7a2a3be457b"
+    },
+    "code:review": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "f7f3cb1b38ad28741a3eac153cab0c49c6a54454128b9687c9f64fb1cfd96fc2"
+    },
+    "code:security": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "e1f0c23dad45ea0ca8dc1db8f95dfacdd5b3de72ddec354200ab6c712a6c8ba2"
+    },
+    "code:stacked-commit": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "65b337b43c116b6d35fef875073893e67001e5d6ddcdae768e24dec55230abe3"
+    },
+    "code:subagents": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "9d0346d0b8ff734fdd6a9491e23a2e922a25a8052790a4401acf9d8f3b8fe1f3"
+    },
     "frontend-design": {
       "source": "anthropics/claude-code",
       "sourceType": "github",
       "computedHash": "e8118284a6365753790d44bb2758a6032b3af27fa84696428d9233f2be0f4e78"
+    },
+    "openapi-spec-generation": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "a18234366d829a7c87ac8f419846da9fe010c3b52b78be2f28e2e2d101b77273"
+    },
+    "oracle:architect": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "4c73d269ce2125c3f7b4495d54643edfa44e22dc44d8814657c412b034d7e9dd"
+    },
+    "oracle:challenge": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "40d19a0fd46a839840c6baee1049bc1669f06e46d887190226a128a9c5507e31"
+    },
+    "oracle:testing": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "94043159cd216fae8c49dd40ff570f9c49e5d329105f884c8e2629b52aa03330"
+    },
+    "oracle:thinkdeep": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "e811f9da24f24806961aeaf0416de7a75d8f0a79593c6d9249ca473b05569f7c"
     },
     "prisma-cli": {
       "source": "prisma/skills",
@@ -36,10 +106,120 @@
       "sourceType": "github",
       "computedHash": "2e4d54a4c7a0fc2476e81686718a765f5eb2cacfb2fb0822f3109c76bf4a9bb0"
     },
+    "python:architecture": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "bbf376e6326aef4aa89bb3211cb6e510b610b5757e5f75c0b0c7fef1760e7710"
+    },
+    "python:build-tools": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "5bc64503a0ecf7012d5600f637cf2cc77a2df257503108a25e0613dc296daab1"
+    },
+    "python:fastapi": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "73dd7642b9b724712c702f07de77ce39330174babc4e40390c8edfb625d3b2b6"
+    },
+    "python:modern-python": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "20a657954eeab58413c4b7a93aa83fb71a74880f77e60b9fdbf96f0430c2d99d"
+    },
+    "python:monorepo": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "ba7ace24d8ca9004344703717f5b1cf6e4032eb47286bcb55cc69a4805a1cc95"
+    },
+    "python:sqlalchemy": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "a3cc1adbfd4584800e3db2862a2df34b58d7bd9d55aca90764da583678fcafee"
+    },
+    "python:temporal": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "b90eedefff3ac4dace2da6e32f73a8b00f8dc7f752fb2f60e59a8a1384fb593a"
+    },
+    "python:testing": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "b21a7265452db274a3d22616a2df78ae12ccc21bad46004cba3c5248258cd6b3"
+    },
+    "spec:finish": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "5081b48859c69764a2022b0c1e9484e51d29e6b9bf85b48592b1aadc0535b236"
+    },
+    "spec:implement": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "61c23b94de0b3f5c633ecf4b61f0547da5c0fa94739da0aca7bb4aab36070bf5"
+    },
+    "spec:install": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "83a703add72c0b98b7c1db18e9567c22373d976829e9a8e5ef775171ef0dfa72"
+    },
+    "spec:orchestrator": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "5877637286eff0e1935e42396250c323b6aaf65b43c781e551693031e1d25923"
+    },
+    "spec:plan": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "611b3cb5ce07415ccedda15c8ac6b6b1552911b90a7f0b729f050f8ed62e4726"
+    },
+    "spec:research": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "de7cdd3da10ebc87cc1e0967b9ce5bc16bb709b256587fb399cc244b9c1cf964"
+    },
     "tanstack-query": {
       "source": "smithery.ai",
       "sourceType": "well-known",
       "computedHash": "be55d2665a2644210c94f5986afe5e391be94c1df256b18cb94861ff2b597685"
+    },
+    "typescript:api-design": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "f8193d8ca57972d0752ee01e053e36d0b38d319b89cf0fb764ccba27c42f2316"
+    },
+    "typescript:build-tools": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "a2e5e25f3627472810580f6100c4eadfa1b1fe9eb3615647ddceec0b116a43f8"
+    },
+    "typescript:drizzle-orm": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "e5c1f5fd37d2b3611392ee07ec1f6704ea363732024f66471051e1c080251876"
+    },
+    "typescript:dynamodb-toolbox": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "6edb2538ecd22092642253fae5b5d8b2fb5163186ffc7548e7a7aaba008cd468"
+    },
+    "typescript:effect-ts": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "12f1a09ba952a62015e1a63dfe9dc64e75c1b5dfb4df22c14284a074be0a3ab5"
+    },
+    "typescript:fastify": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "b74d9642817ea1d94c45e734f15b459f1e208caa25ea2451268cd2f294850c40"
+    },
+    "typescript:functional-patterns": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "ef1ff19e75ebaf1c4294fd04b2b5c893bad071efb06593b1f55c02bf1fc1053c"
+    },
+    "typescript:testing": {
+      "source": "martinffx/claude-code-atelier",
+      "sourceType": "github",
+      "computedHash": "c49a13893035a3181e3f41b7d9533c947be5bb9b2fa3bf183cf255cefe9d8dc1"
     }
   }
 }
