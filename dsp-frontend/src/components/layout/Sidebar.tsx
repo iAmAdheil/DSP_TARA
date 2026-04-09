@@ -20,6 +20,7 @@ import {
   FolderOpen,
   ChevronDown,
   Plus,
+  Car,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -48,6 +49,12 @@ const NAV_GROUPS = [
       { id: 'subsystem', label: 'Subsystem Explorer', icon: Box, path: '/subsystems' },
       { id: 'reports', label: 'Reports & Export', icon: FileText, path: '/reports' },
       { id: 'history', label: 'Run History', icon: History, path: '/history' },
+    ]
+  },
+  {
+    label: 'Visualization',
+    items: [
+      { id: 'car-inspector', label: '3D Car Inspector', icon: Car, path: '/car-inspector' },
     ]
   }
 ];

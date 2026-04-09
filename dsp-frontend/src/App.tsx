@@ -14,6 +14,7 @@ import { AttackPaths } from './pages/AttackPaths';
 import { SubsystemExplorer } from './pages/SubsystemExplorer';
 import { ReportsExport } from './pages/ReportsExport';
 import { RunHistory } from './pages/RunHistory';
+import { Car3DInspector } from './pages/Car3DInspector';
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
         <Route path="subsystems" element={<SubsystemExplorer />} />
         <Route path="reports" element={<ReportsExport />} />
         <Route path="history" element={<RunHistory />} />
+        <Route path="car-inspector" element={<Car3DInspector />} />
       </Route>
     </Routes>
   );
