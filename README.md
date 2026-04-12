@@ -53,27 +53,118 @@ dsp-project/
 
 ### Prerequisites
 
-- Node.js 20+ / Bun
-- PostgreSQL
-- Redis
+- **Node.js 20+** (or [Bun](https://bun.sh))
+- **PostgreSQL** — a local database named `dsp` is expected by default
+- **Redis** — default `redis://localhost:6379`
+- **Gemini API key** — create one at [Google AI Studio](https://aistudio.google.com/app/apikey)
+- **NVD API key** (optional but recommended to avoid rate limits) — request one at [nvd.nist.gov](https://nvd.nist.gov/developers/request-an-api-key)
 
-### Backend
+---
+
+### 1. Clone & install
+
+```bash
+git clone <repo-url>
+cd dsp-project
+```
+
+---
+
+### 2. Backend setup
 
 ```bash
 cd dsp-backend
-cp .env.example .env        # fill in DATABASE_URL, REDIS_URL, GEMINI_API_KEY, JWT_SECRET
-npx prisma migrate deploy
-npm run dev                 # API on :3000
-npm run dev:worker          # Pipeline worker process
+npm install
 ```
 
-### Frontend
+Copy the example env file and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+`.env` variables:
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | PostgreSQL connection string, e.g. `postgresql://user:pass@localhost:5432/dsp` |
+| `REDIS_URL` | Yes | Redis connection string, e.g. `redis://localhost:6379` |
+| `GEMINI_API_KEY` | Yes | Google Gemini API key |
+| `JWT_SECRET` | Yes | Random string, at least 32 characters |
+| `NVD_API_KEY` | No | NVD API key; omitting it works but requests are heavily rate-limited |
+| `PORT` | No | API port (default: `4000`) |
+| `GEMINI_LLM_MODEL` | No | Gemini model for text generation (default: `gemini-2.5-flash`) |
+
+Run database migrations:
+
+```bash
+npx prisma migrate deploy
+```
+
+Start the API server and pipeline worker in two separate terminals:
+
+```bash
+# Terminal 1 — API server (http://localhost:4000)
+npm run dev
+
+# Terminal 2 — BullMQ pipeline worker
+npm run dev:worker
+```
+
+Both processes must be running for the pipeline to work. The API enqueues jobs; the worker executes them.
+
+---
+
+### 3. Frontend setup
 
 ```bash
 cd dsp-frontend
 npm install
-npm run dev                 # Vite dev server on :5173
+npm run dev          # Vite dev server at http://localhost:5173
 ```
+
+The frontend connects to the backend at `http://localhost:4000` (hardcoded in `src/lib/api.ts`). If you change the backend port, update that file.
+
+---
+
+### 4. Regenerate API types (optional)
+
+Both packages use `openapi-typescript` to generate typed API clients from the OpenAPI spec. Run this after modifying `dsp-backend/openapi.yaml`:
+
+```bash
+# In dsp-backend/
+npm run api:types     # regenerates src/core/types/openapi.generated.ts
+
+# In dsp-frontend/
+npm run api:types     # regenerates src/generated/api.ts
+```
+
+---
+
+### Available scripts
+
+**Backend (`dsp-backend/`)**
+
+| Script | Description |
+|---|---|
+| `npm run dev` | Start API server with hot reload (`tsx watch`) |
+| `npm run dev:worker` | Start pipeline worker with hot reload |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm run start` | Run compiled API server |
+| `npm run start:worker` | Run compiled worker |
+| `npm run typecheck` | Type-check without emitting |
+| `npm run api:lint` | Lint OpenAPI spec with Redocly |
+| `npm run api:preview` | Preview API docs via Redocly |
+
+**Frontend (`dsp-frontend/`)**
+
+| Script | Description |
+|---|---|
+| `npm run dev` | Start Vite dev server |
+| `npm run build` | Type-check + production build |
+| `npm run preview` | Preview production build locally |
+| `npm run lint` | ESLint |
+| `npm run api:types` | Regenerate typed API client from OpenAPI spec |
 
 ---
 
